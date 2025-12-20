@@ -109,7 +109,7 @@ def run_mvp(
     # 7) Tidy share package (evidence bundle layout)
     _step("evidence_bundle", lambda: export_evidence_bundle(run_dir=rdir))
 
-# Overall status
+    # Overall status
     fails = [s for s in summary["steps"] if s.get("status") == "fail"]
     summary["status"] = "ok" if not fails else "partial"
 

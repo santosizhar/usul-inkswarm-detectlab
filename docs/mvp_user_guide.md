@@ -1,176 +1,107 @@
 # MVP User Guide (Non-Technical)
 
-This guide explains how to **run the MVP**, what it **produces**, and how to **tell if progress is real**.
+This guide explains how to **run the MVP**, what it **produces**, and how to **interpret the results**.
 
-If you are not comfortable running commands, ask someone to run **one script** for you (Release Readiness) and share the produced evidence bundle.
-
----
-
-## What is DetectLab?
-
-DetectLab is a “lab bench” for detection work:
-1) It **generates synthetic event data** (SKYNET).
-2) It builds **leakage-aware splits** (train / time_eval / user_holdout).
-3) It creates **safe aggregate features** (FeatureLab).
-4) It trains and evaluates **simple baselines** (BaselineLab).
-5) It writes all outputs into a run folder: `runs/<run_id>/`.
-
-The MVP focuses on one event table: **`login_attempt`**.
+If you are not comfortable running commands, ask someone to:
+- run the MVP, and
+- send you the generated **share package** (a zip).
 
 ---
 
 ## What you need
 
-- A computer with **Python 3.12** installed.
-- Windows is supported (PowerShell scripts are provided).
-- Parquet is mandatory, so you need `pyarrow` (the install step below includes it).
+- Python **3.12+**
+- This repo checked out locally
 
 ---
 
-## The simplest way to run the MVP (recommended)
+## 1) Install (developer help)
 
-Use the single MVP command. It runs the full pipeline (best-effort) and produces a **shareable HTML viewer**.
+From the repo root:
 
 ```bash
-detectlab run mvp -c configs/skynet_mvp.yaml
-```
-
-What it produces (inside `runs/<run_id>/`):
-- `reports/mvp_handover.md` — what to open / what to look at
-- `share/ui_bundle/index.html` — stakeholder-friendly results viewer
-- `reports/summary.md` and `reports/baselines_login_attempt.md` — readable reports
-
-If a step fails, the command will still write whatever it can and tell you where to look.
-
----
-
-## The simplest way to validate everything (Release Readiness)
-
-Run **Release Readiness** (RR). It runs the full pipeline **twice** and checks determinism.
-
-### Windows (PowerShell) — repo root
-```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# Windows: .\.venv\Scripts\activate
+source .venv/bin/activate
+
 pip install -U pip
 pip install -e ".[dev]"
-
-.\scripts\rr_mvp.ps1
 ```
-
-### What “success” looks like
-RR prints a PASS message and produces an evidence bundle under:
-- `rr_evidence/RR-0001/<base_run_id>/`
-
-The key items are:
-- `rr_mvp.log` — full log output
-- `signature_A.json` and `signature_B.json` — determinism signatures (should match)
-- `rr_error.txt` — **only present on failure**
-
-It also writes a markdown evidence note under:
-- `journals/inkswarm-detectlab__RR_EVIDENCE__RR-0001__<base_run_id>.md`
 
 ---
 
-## If you want to run steps one by one (optional)
-
-### 1) Generate synthetic data (SKYNET)
-```bash
-detectlab run skynet -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001
-```
-
-### 2) Build features (FeatureLab)
-```bash
-detectlab features build -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --event login
-```
-
-### 3) Train and evaluate baselines (BaselineLab)
-MVP baseline set is locked to:
-- `logreg` (Logistic Regression)
-- `rf` (Random Forest)
+## 2) Run the MVP (one command)
 
 ```bash
-detectlab baselines run -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001
+detectlab run mvp -c configs/skynet_mvp.yaml --run-id MVP_SEND_YYYYMMDD_001 --force
 ```
 
----
-
-## Where to find results
-
-Everything lands under:
-- `runs/<run_id>/`
-
-Important outputs:
-- `runs/<run_id>/reports/summary.md` — quick run summary (counts, splits, labels)
-- `runs/<run_id>/models/login_attempt/baselines/report.md` — readable evaluation report
-- `runs/<run_id>/models/login_attempt/baselines/metrics.json` — machine-readable metrics
-- `runs/<run_id>/manifest.json` — content hashes (integrity + determinism support)
+Expected output folder:
+- `runs/MVP_SEND_YYYYMMDD_001/share/`
 
 ---
 
-## How to interpret “progress”
+## 3) Open the results viewer (no server required)
 
-### 1) Don’t overfit to one number
-PR-AUC can move for many reasons. Use it as a headline, but also check:
-- Recall at a fixed false positive rate (e.g. 1% FPR)
-- Stability across splits (time_eval vs user_holdout)
-- Slice stability (planned for post-MVP)
+Open this file in your browser:
 
-### 2) The most important question
-**Does it generalize?**  
-A model that looks good on train but collapses on `user_holdout` is not usable.
+- `runs/MVP_SEND_YYYYMMDD_001/share/ui_bundle/index.html`
 
-### 3) Track progress like a lab notebook
-Every meaningful change should produce:
-- a new `run_id`
-- a `report.md` / `metrics.json`
-- a journal entry under `journals/` summarizing what changed and what improved (or broke)
+You can switch between:
+- **User Holdout** (primary “truth”)
+- **Time Eval** (drift check)
 
 ---
 
-## Sharing results (for stakeholders)
-To share results with non-technical stakeholders, the easiest path is the **static HTML viewer**.
+## 4) Zip the share package (send to someone else)
 
-### Option A — Static HTML viewer (recommended)
-If you ran `detectlab run mvp`, the viewer is already created at:
-- `runs/<run_id>/share/ui_bundle/index.html`
+### Windows (PowerShell)
+```powershell
+.\scripts\make_share_zip.ps1 -RunId MVP_SEND_YYYYMMDD_001
+```
 
-If you want a **multi-run comparison** (up to 5), generate a bundle explicitly:
+### macOS/Linux (bash)
 ```bash
-detectlab ui export -c configs/skynet_mvp.yaml --run-ids RUN_ID_1,RUN_ID_2 --out-dir ui_bundle
+bash scripts/make_share_zip.sh MVP_SEND_YYYYMMDD_001
 ```
-- Supports up to **5** runs (`nmax=5`) for side-by-side comparison.
-- Open `ui_bundle/index.html` in any modern browser (no server needed).
 
-### Option B — Share the raw reports
-- `runs/<run_id>/reports/summary.md`
-- `runs/<run_id>/models/login_attempt/baselines/report.md`
-- RR evidence bundle (if you ran RR-0001): `rr_evidence/RR-0001/<base_run_id>/`
+This produces a zip next to the run folder (see script output).
 
 ---
 
-## Lore (optional)
-Lore exists to make the project memorable and cohesive. It is separate from the technical docs:
-- `docs/lore/world_bible.md`
-## Diagnostics: slices + stability (EvalLab)
+## 5) What to read (in order)
 
-After baselines run, DetectLab produces two extra reports under `runs/<run_id>/reports/`:
+Inside `runs/<run_id>/share/`:
 
-- `eval_stability_login_attempt.md` — **threshold stability** + split-to-split performance drift
-- `eval_slices_login_attempt.md` — performance by **playbook archetype** and simple covariates (MFA, country, etc.)
+1) `ui_bundle/index.html` — interactive comparison
+2) `reports/mvp_handover.md` — plain-language interpretation
+3) `reports/summary.md` — technical summary + known limitations
+4) `logs/` — if something failed
+5) `meta/manifest.json` + `meta/ui_summary.json` — machine-readable evidence
+6) `evidence_manifest.json` — hashes used for determinism checks
 
-How to read them (non-technical):
+---
 
-- **Holdout** is the most important sanity check: “does this still work on *new users*?”
-- **Time Eval** checks whether performance shifts across time (drift).
-- The **threshold** is chosen on Train so that false alarms stay low (1% FPR).  
-  Stability asks: “if we keep that same threshold, does recall collapse on other splits?”
+## 6) How to interpret (3-minute guide)
 
-If you only read one thing, read the **stability table** at the top of `eval_stability_login_attempt.md`.
+### Primary truth: User Holdout
+Use **User Holdout** to decide if the model generalizes to unseen users.
 
+### Secondary truth: Time Eval
+Use **Time Eval** to understand drift exposure (performance over time).
 
-## What to open after a run
-- `runs/<RUN_ID>/share/OPEN_ME_FIRST.md`
-- `runs/<RUN_ID>/share/ui_bundle/index.html`
-- `runs/<RUN_ID>/share/EXEC_SUMMARY.html`
-- `runs/<RUN_ID>/share/summary.html`
+### Red flags
+- Metrics improve on train but not on holdout
+- Strong performance overall but collapses on key slices (e.g., country/device)
+- Threshold stability looks unstable (high variance)
+
+---
+
+## 7) Release Readiness (optional but recommended)
+
+RR runs the MVP **twice** and checks that evidence signatures match.
+
+- Windows: `scripts/rr_mvp.ps1`
+- macOS/Linux: `scripts/rr_mvp.sh`
+
+See `docs/runbook.md` for the exact commands and where the RR evidence is written.

@@ -1,11 +1,24 @@
 from __future__ import annotations
-from pathlib import Path
+
 import json
-from typing import Any
+from pathlib import Path
+from typing import Any, Dict
 
-def write_manifest(path: Path, manifest: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-def read_manifest(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _normalize_manifest_path(path: Path) -> Path:
+    """Accept either a run directory or an explicit manifest.json path."""
+    path = Path(path)
+    if path.is_dir():
+        return path / "manifest.json"
+    return path
+
+
+def write_manifest(path: Path, manifest: Dict[str, Any]) -> None:
+    mpath = _normalize_manifest_path(path)
+    mpath.parent.mkdir(parents=True, exist_ok=True)
+    mpath.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def read_manifest(path: Path) -> Dict[str, Any]:
+    mpath = _normalize_manifest_path(path)
+    return json.loads(mpath.read_text(encoding="utf-8"))

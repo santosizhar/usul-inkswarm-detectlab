@@ -4,6 +4,8 @@ theme:
 nav:
   - Home: index.md
   - MVP User Guide: mvp_user_guide.md
+  - Runbook: runbook.md
+  - Repo Map: repo_map.md
   - Getting Started: getting_started.md
   - Pipeline Overview: pipeline_overview.md
   - FeatureLab: features.md
