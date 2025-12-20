@@ -44,8 +44,6 @@ def export_evidence_bundle(*, run_dir: Path) -> Path:
 
     This is intended for non-technical recipients:
       - open share/ui_bundle/index.html (UI)
-      - open share/EXEC_SUMMARY.html (stakeholder-friendly)
-      - open share/summary.html (full summary rendered)
       - read share/reports/mvp_handover.md
       - optionally inspect share/meta/manifest.json + ui_summary.json
       - logs live under share/logs/
@@ -94,7 +92,6 @@ This folder is meant to be sent as-is.
 
 ## Open this first
 - `ui_bundle/index.html (UI)
-- reports/EXEC_SUMMARY.html (stakeholder-friendly)
 - reports/summary.html (full summary rendered)` (interactive, stakeholder-friendly)
 
 ## Then read
@@ -112,45 +109,7 @@ If anything is missing, it usually means that step failed upstream — see `logs
 
     # Evidence manifest (hashes so two exports are comparable)
     # We hash files inside share/ excluding the UI bundle assets (large) except index.html (UI)
-- reports/EXEC_SUMMARY.html (stakeholder-friendly)
-- reports/summary.html (full summary rendered) + app.js.
-    
-# Convenience top-level HTML copies (so recipients don't need to dig into folders)
-# These are small files; safe to duplicate.
-try:
-    _copy_if_exists(run_dir / "reports" / "EXEC_SUMMARY.html", share_root / "EXEC_SUMMARY.html")
-    _copy_if_exists(run_dir / "reports" / "summary.html", share_root / "summary.html")
-except Exception:
-    pass
-
-# One-file handover pointer for non-technical recipients
-try:
-    open_me = share_root / "OPEN_ME_FIRST.md"
-    open_me.write_text(
-        "\n".join(
-            [
-                "# Inkswarm DetectLab — What to open",
-                "",
-                "Open these in order:",
-                "1) `ui_bundle/index.html` — interactive UI bundle",
-                "2) `EXEC_SUMMARY.html` — stakeholder-friendly executive summary (HTML)",
-                "3) `summary.html` — full summary (HTML)",
-                "",
-                "Supporting files:",
-                "- `reports/` — detailed reports and markdown sources",
-                "- `logs/` — run logs",
-                "- `meta/` — manifests, configs, and ui_summary.json",
-                "",
-                "If any file is missing, the run likely failed in an earlier reporting step. See `logs/` and the console step summary.",
-                "",
-            ]
-        ) + "\n",
-        encoding="utf-8",
-    )
-except Exception:
-    pass
-
-manifest: Dict[str, Any] = {
+    manifest: Dict[str, Any] = {
         "schema_version": 1,
         "root": str(share_root),
         "files": [],
@@ -163,13 +122,3 @@ manifest: Dict[str, Any] = {
             return False
         if rel.startswith("ui_bundle/"):
             return rel in {"ui_bundle/index.html", "ui_bundle/app.js", "ui_bundle/style.css"}
-        return True
-
-    for p in sorted([x for x in share_root.rglob("*") if x.is_file()]):
-        if not _should_hash(p):
-            continue
-        rel = p.relative_to(share_root).as_posix()
-        manifest["files"].append({"path": rel, "sha256": _sha256(p), "bytes": p.stat().st_size})
-
-    (share_root / "evidence_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return share_root
