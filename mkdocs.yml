@@ -7,7 +7,6 @@ nav:
   - Pipeline Overview: pipeline_overview.md
   - FeatureLab: features.md
   - BaselineLab: baselines.md
-  - Reporting: reporting.md
   - Schemas: schemas.md
   - Code Freeze: code_freeze.md
   - Lore: lore/world_bible.md

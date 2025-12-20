@@ -12,7 +12,6 @@ from .pipeline import generate_raw, build_dataset, run_all
 from .features import build_login_features_for_run
 from .models import run_login_baselines_for_run
 from .utils.parquetify import parquetify_run
-from .reports import generate_final_report_for_run
 from .io.manifest import read_manifest
 from .io.paths import manifest_path
 
@@ -28,6 +27,23 @@ app = typer.Typer(
     ),
 )
 
+
+def _require_pyarrow() -> None:
+    """Fail-closed if Parquet engine is unavailable.
+
+    D-0005 makes Parquet mandatory. This check is intentionally cheap (single import)
+    and provides a clear, actionable error.
+    """
+    try:
+        import pyarrow  # noqa: F401
+    except Exception as e:
+        typer.echo(
+            "ERROR: Parquet is mandatory but 'pyarrow' is not available. "
+            "Install deps (pip install -e .[dev]) and re-run. "
+            f"Import error: {e}"
+        )
+        raise typer.Exit(code=2)
+
 schemas_app = typer.Typer(add_completion=False, help="Schema utilities")
 config_app = typer.Typer(add_completion=False, help="Config utilities")
 synthetic_app = typer.Typer(add_completion=False, help="Synthetic data generation")
@@ -35,7 +51,6 @@ dataset_app = typer.Typer(add_completion=False, help="Dataset building")
 run_app = typer.Typer(add_completion=False, help="End-to-end pipeline")
 features_app = typer.Typer(add_completion=False, help="Feature building")
 baselines_app = typer.Typer(add_completion=False, help="Baseline models")
-report_app = typer.Typer(add_completion=False, help="Reporting utilities")
 
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(config_app, name="config")
@@ -44,7 +59,45 @@ app.add_typer(dataset_app, name="dataset")
 app.add_typer(run_app, name="run")
 app.add_typer(features_app, name="features")
 app.add_typer(baselines_app, name="baselines")
-app.add_typer(report_app, name="report")
+
+
+@app.command("doctor")
+def doctor():
+    """Print environment diagnostics (useful for crash triage / CI baselines)."""
+    import sys
+    import platform
+
+    typer.echo("DetectLab doctor")
+    typer.echo(f"- python: {sys.version.replace(chr(10), ' ')}")
+    typer.echo(f"- platform: {platform.platform()}")
+    try:
+        import sklearn  # type: ignore
+
+        typer.echo(f"- sklearn: {getattr(sklearn, '__version__', None)}")
+    except Exception:
+        typer.echo("- sklearn: <unavailable>")
+    try:
+        import pandas as pd  # type: ignore
+
+        typer.echo(f"- pandas: {getattr(pd, '__version__', None)}")
+    except Exception:
+        typer.echo("- pandas: <unavailable>")
+    try:
+        import pyarrow as pa  # type: ignore
+
+        typer.echo(f"- pyarrow: {getattr(pa, '__version__', None)}")
+    except Exception:
+        typer.echo("- pyarrow: <unavailable>")
+    try:
+        from threadpoolctl import threadpool_info  # type: ignore
+
+        info = threadpool_info()
+        typer.echo(f"- threadpools: {len(info)}")
+        for i, row in enumerate(info[:10]):
+            lib = row.get('internal_api') or row.get('user_api') or 'unknown'
+            typer.echo(f"  - {i+1}: {lib} ({row.get('num_threads')})")
+    except Exception:
+        typer.echo("- threadpools: <unavailable>")
 
 
 def _resolve_config(arg: Optional[Path], opt: Optional[Path]) -> Path:
@@ -108,6 +161,7 @@ def synthetic_skynet(
     run_id: Optional[str] = typer.Option(None, "--run-id", help="Override run_id (optional)."),
 ):
     """Generate raw SKYNET tables (login_attempt + checkout_attempt) and write a partial manifest."""
+    _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
     rdir, _ = generate_raw(cfg, run_id=run_id)
@@ -123,6 +177,7 @@ def dataset_build(
     run_id: str = typer.Option(..., "--run-id", help="Existing run_id to build datasets for."),
 ):
     """Build leakage-aware datasets for an existing run_id and update manifest + summary."""
+    _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
     rdir, _ = build_dataset(cfg, run_id=run_id)
@@ -137,11 +192,8 @@ def dataset_parquetify(
     run_id: str = typer.Option(..., "--run-id", help="Existing run_id to convert CSV artifacts to Parquet."),
     force: bool = typer.Option(False, "--force", help="Overwrite existing Parquet artifacts if present."),
 ):
-    """Migrate a legacy run that contains CSV artifacts to Parquet.
-
-This writes `.parquet` files next to existing `.csv` files, updates the run manifest to
-point to Parquet paths, and keeps the CSV files (migration keeps originals).
-"""
+    """Explicit conversion to Parquet (ramping toward Parquet-mandatory milestone)."""
+    _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
     rdir = parquetify_run(cfg, run_id=run_id, force=force)
@@ -160,6 +212,7 @@ def features_build(
     force: bool = typer.Option(False, "--force", help="Overwrite existing feature artifacts."),
 ):
     """Build login_attempt feature table for an existing run_id."""
+    _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
     rdir = build_login_features_for_run(cfg, run_id=run_id, force=force)
@@ -176,26 +229,12 @@ def baselines_run(
     force: bool = typer.Option(False, "--force", help="Overwrite existing baseline artifacts."),
 ):
     """Train baseline models for login_attempt (writes under runs/<run_id>/models/...)."""
+    _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
-    rdir = run_login_baselines_for_run(cfg, run_id=run_id, force=force)
+    rdir = run_login_baselines_for_run(cfg, run_id=run_id, force=force, cfg_path=cfg_path)
     typer.echo(str(rdir))
     _print_artifacts(rdir)
-
-@report_app.command("generate")
-def report_generate(
-    config: Optional[Path] = typer.Argument(None),
-    *,
-    config_opt: Optional[Path] = typer.Option(None, "--config", "-c", help="Path to YAML config."),
-    run_id: str = typer.Option(..., "--run-id", help="Existing run_id to generate report for."),
-    force: bool = typer.Option(False, "--force", help="Overwrite existing report artifacts."),
-):
-    """Generate a stitched final report (D-0006) for a run."""
-    cfg_path = _resolve_config(config, config_opt)
-    cfg = load_config(cfg_path)
-    out = generate_final_report_for_run(cfg, run_id=run_id, force=force)
-    typer.echo(str(out))
-
 @run_app.command("skynet")
 def run_skynet(
     config: Optional[Path] = typer.Argument(None),
@@ -204,6 +243,7 @@ def run_skynet(
     run_id: Optional[str] = typer.Option(None, "--run-id", help="Override run_id (optional)."),
 ):
     """End-to-end: generate raw SKYNET tables + build datasets + write manifest + summary."""
+    _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
     rdir, _ = run_all(cfg, run_id=run_id)

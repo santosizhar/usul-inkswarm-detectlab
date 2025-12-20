@@ -2,62 +2,62 @@
   "artifacts": {
     "dataset/checkout_attempt/time_eval": {
       "content_hash": "f7a8c59f43cb2947600cb5e5d649cfa00bd4292f10a25153ec357ef7f63b3e08",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/time_eval.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/time_eval.parquet",
       "rows": 138
     },
     "dataset/checkout_attempt/train": {
       "content_hash": "6016709306057e8289d683bfa4768a0d2bc9085ae32338d443a5aa65141169e8",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/train.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/train.parquet",
       "rows": 799
     },
     "dataset/checkout_attempt/user_holdout": {
       "content_hash": "2790ffecef12e43bd7d03545529798cebf8dc57efcf7aac0bc700b0006e14f04",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/user_holdout.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/user_holdout.parquet",
       "rows": 169
     },
     "dataset/login_attempt/time_eval": {
       "content_hash": "976a72584a86f575d630737dc4ea5a71c8a390e165f263e1efb8c6c942e41aaf",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/time_eval.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/time_eval.parquet",
       "rows": 1184
     },
     "dataset/login_attempt/train": {
       "content_hash": "177d73a3a049195a2029ba0a851528365a3046b7b27fbcaf64664a4000928219",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/train.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/train.parquet",
       "rows": 8142
     },
     "dataset/login_attempt/user_holdout": {
       "content_hash": "f27b14d6a22e0c18e9668c6779cbf41bc287beaf98006f40913cfc40883ddf48",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/user_holdout.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/user_holdout.parquet",
       "rows": 1476
     },
     "features/login_attempt/features": {
       "content_hash": "139c2534fb1c5452cdc3d48aabda14561e98bdbecfe5f702d4bd24a49ebf2090",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/features.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/features.parquet",
       "rows": 10802
     },
     "features/login_attempt/manifest": {
-      "content_hash": "285c77368b73023bcf919a18e6c7d27c18c044a13df7ca760912e07ca6978fb3",
+      "content_hash": "d047f0f48396dca46077bac51cb6e075ddb9de9ee9219a2bd77b1bf8e5b905f9",
       "format": "json",
       "note": null,
       "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_manifest.json",
       "rows": null
     },
     "features/login_attempt/spec": {
-      "content_hash": "a4744564345f121f21e6ce6686c8c30992ffb31d9928dc29314c04541eb97bd1",
+      "content_hash": "1199fb760b8aa0a24dfd513397df00947cfab81154f3b60e6f0c6e41ac1bfe35",
       "format": "json",
       "note": null,
       "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_spec.json",
@@ -65,16 +65,16 @@
     },
     "raw/checkout_attempt": {
       "content_hash": "7abf9945c19ffd366b43d313b3fa000ecbb54e14533e98251770862822eddb40",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/raw/checkout_attempt.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/raw/checkout_attempt.parquet",
       "rows": 1106
     },
     "raw/login_attempt": {
       "content_hash": "0deb2bdd4ad61ed00134e5f5f31411e9ad0ffef42c13551b41a649b3ddf74c82",
-      "format": "csv",
-      "note": "parquet_failed:ImportError",
-      "path": "RUN_SAMPLE_SMOKE_0001/raw/login_attempt.csv",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/raw/login_attempt.parquet",
       "rows": 10802
     }
   },

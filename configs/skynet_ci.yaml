@@ -49,6 +49,6 @@ baselines:
     enabled: true
     models:
     - logreg
-    - hgb
+    - rf
     target_fpr: 0.01
     report_top_features: true

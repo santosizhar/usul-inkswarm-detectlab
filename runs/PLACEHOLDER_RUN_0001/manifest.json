@@ -1,9 +1,9 @@
 {
   "formats": {
-    "checkout_attempt": "csv",
-    "login_attempt": "csv"
+    "checkout_attempt": "parquet",
+    "login_attempt": "parquet"
   },
-  "note": "Committed placeholder run for notebooks/tests (format may be csv if parquet engine unavailable).",
+  "note": "Committed placeholder run for notebooks/tests (Parquet mandatory as of D-0005).",
   "row_counts": {
     "checkout_attempt": 64,
     "login_attempt": 64

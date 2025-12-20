@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 DEFAULT_SCHEMA_VERSION = "v1"
 
@@ -125,6 +125,15 @@ class LogRegBaselineConfig(BaseModel):
     class_weight: Literal["balanced", "none"] = Field(default="balanced")
 
 
+
+class RFBaselineConfig(BaseModel):
+    # Robust, widely-supported tree baseline (chosen for MVP default instead of HGB).
+    n_estimators: int = Field(default=300, ge=1)
+    max_depth: int | None = Field(default=None)
+    min_samples_leaf: int = Field(default=1, ge=1)
+    max_features: Literal["sqrt", "log2"] | float | None = Field(default="sqrt")
+
+
 class HGBBaselineConfig(BaseModel):
     # Quality-first defaults (locked): max_iter=300, early_stopping disabled unless explicitly enabled.
     max_iter: int = Field(default=300, ge=1)
@@ -139,12 +148,24 @@ class HGBBaselineConfig(BaseModel):
 
 class LoginBaselinesConfig(BaseModel):
     enabled: bool = Field(default=True)
-    models: list[Literal["logreg", "hgb"]] = Field(default_factory=lambda: ["logreg", "hgb"])
+    # D-0005: default baselines are logreg + rf.
+    # CR-0002: HGB is temporarily **disabled** until its native crash is resolved.
+    models: list[Literal["logreg", "rf", "hgb"]] = Field(default_factory=lambda: ["logreg", "rf"])
     target_fpr: float = Field(default=0.01, gt=0.0, lt=1.0)
     report_top_features: bool = Field(default=True)
 
     logreg: LogRegBaselineConfig = Field(default_factory=LogRegBaselineConfig)
+    rf: RFBaselineConfig = Field(default_factory=RFBaselineConfig)
     hgb: HGBBaselineConfig = Field(default_factory=HGBBaselineConfig)
+
+    @model_validator(mode="after")
+    def _no_hgb_until_resolved(self) -> "LoginBaselinesConfig":
+        if "hgb" in list(self.models or []):
+            raise ValueError(
+                "CR-0002: 'hgb' baseline is temporarily disabled due to a native crash during fit on some platforms. "
+                "Use baselines.models: [logreg, rf] for MVP."
+            )
+        return self
 
 
 class BaselinesConfig(BaseModel):

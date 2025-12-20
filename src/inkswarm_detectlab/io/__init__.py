@@ -10,7 +10,7 @@ from .paths import (
     reports_dir,
     summary_path,
 )
-from .tables import read_auto, write_auto, read_parquet, write_parquet, read_csv, write_csv
+from .tables import read_auto, read_auto_legacy, write_auto, read_parquet, write_parquet, read_csv, write_csv
 from .manifest import read_manifest, write_manifest
 
 __all__ = [
@@ -25,6 +25,7 @@ __all__ = [
     "reports_dir",
     "summary_path",
     "read_auto",
+    "read_auto_legacy",
     "write_auto",
     "read_parquet",
     "write_parquet",

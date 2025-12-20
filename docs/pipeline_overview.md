@@ -22,31 +22,11 @@ All timestamps are standardized to `America/Argentina/Buenos_Aires`.
 DetectLab aims for reproducibility:
 - Tables are canonicalized (stable sort + stable column order) **before write and hash**.
 - Manifest stores `content_hash` per artifact.
-- Parquet is mandatory as of D-0005. Legacy CSV artifacts are not read by the pipeline.
-If you have an older run with CSV artifacts, use `detectlab dataset parquetify` to migrate it.
+- Parquet is **mandatory** as of **D-0005** (fail-closed; no CSV fallback).
 
-## Parquet mandatory (D-0005)
-
-All artifacts are written and read as **Parquet**.
-
-### Migrating legacy runs
-
-If a run contains CSV artifacts, migrate it explicitly:
+## Legacy Parquet conversion
+Use the explicit command to upgrade **older runs** that still contain CSV artifacts:
 
 ```bash
-detectlab dataset parquetify -c <config.yaml> --run-id <RUN_ID> --force
-```
-
-Notes:
-- This writes `.parquet` files next to existing `.csv` files.
-- It updates `manifest.json` to point to the Parquet paths.
-- It does **not** delete the CSV files (migration keeps originals).
-
-
-## Reporting (D-0006)
-
-After baselines, you can generate a stitched operator report:
-
-```bash
-uv run detectlab report generate -c <CONFIG.yaml> --run-id <RUN_ID>
+detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
 ```

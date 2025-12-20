@@ -1,31 +1,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import pandas as pd
 
 
-_PARQUET_HELP = (
-    "Parquet is mandatory as of D-0005. Install the parquet engine and retry.\n"
-    "Recommended: `uv pip install pyarrow` (or ensure project deps are installed).\n"
-    "If you are working with an older run that only has CSV artifacts, run:\n"
-    "  `uv run detectlab dataset parquetify -c <config.yaml> --run-id <RUN_ID> --force`\n"
-)
+# D-0005: Parquet is mandatory.
+# CSV helpers remain ONLY for legacy conversion (dataset parquetify).
 
 
 def write_parquet(df: pd.DataFrame, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        df.to_parquet(path, index=False)
-    except Exception as e:
-        # Pandas raises ImportError/ValueError when no parquet engine is available.
-        raise RuntimeError(f"Failed to write Parquet to {path}: {e}\n\n{_PARQUET_HELP}") from e
+    df.to_parquet(path, index=False)
 
 
 def read_parquet(path: Path) -> pd.DataFrame:
-    try:
-        return pd.read_parquet(path)
-    except Exception as e:
-        raise RuntimeError(f"Failed to read Parquet from {path}: {e}\n\n{_PARQUET_HELP}") from e
+    return pd.read_parquet(path)
 
 
 def write_csv(df: pd.DataFrame, path: Path) -> None:
@@ -38,30 +28,37 @@ def read_csv(path: Path) -> pd.DataFrame:
 
 
 def read_auto(base_path_no_ext: Path) -> pd.DataFrame:
-    """Read Parquet only.
+    """Read a parquet table from a base path without extension.
 
-    If a legacy CSV exists, fail closed with instructions to run `dataset parquetify`.
+    For D-0005+ pipelines, only .parquet is accepted.
     """
     pq = base_path_no_ext.with_suffix(".parquet")
     if pq.exists():
         return read_parquet(pq)
+    raise FileNotFoundError(f"No parquet table found for {base_path_no_ext} (.parquet)")
 
+
+def read_auto_legacy(base_path_no_ext: Path) -> pd.DataFrame:
+    """Legacy reader: resolves parquet first, then csv.
+
+    Only used by the explicit `dataset parquetify` command.
+    """
+    pq = base_path_no_ext.with_suffix(".parquet")
+    if pq.exists():
+        return read_parquet(pq)
     csv = base_path_no_ext.with_suffix(".csv")
     if csv.exists():
-        raise RuntimeError(
-            f"Legacy CSV artifact detected: {csv}.\n\n{_PARQUET_HELP}"
-        )
-
-    raise FileNotFoundError(f"No table found for {base_path_no_ext} (.parquet expected)")
+        return read_csv(csv)
+    raise FileNotFoundError(f"No table found for {base_path_no_ext} (.parquet/.csv)")
 
 
 def write_auto(df: pd.DataFrame, base_path_no_ext: Path) -> tuple[Path, str, str | None]:
-    """Write Parquet only (mandatory as of D-0005).
-
-    Returns: (actual_path, format, note) — kept for backward compatibility.
-      - format: always 'parquet'
-      - note: always None
-    """
+    """Write parquet only (D-0005+). Returns: (path, format, note)."""
     pq = base_path_no_ext.with_suffix(".parquet")
-    write_parquet(df, pq)
+    try:
+        write_parquet(df, pq)
+    except ImportError as e:
+        raise ImportError(
+            "Parquet is mandatory. Install a parquet engine (pyarrow) and retry."
+        ) from e
     return pq, "parquet", None

@@ -110,7 +110,7 @@ def build_login_features_for_run(cfg: AppConfig, *, run_id: str, force: bool = F
     # Output paths
     base_no_ext = rdir / "features" / "login_attempt" / "features"
     # fail-closed overwrite policy
-    if (base_no_ext.with_suffix(".parquet").exists() or base_no_ext.with_suffix(".csv").exists()) and not force:
+    if base_no_ext.with_suffix(".parquet").exists() and not force:
         raise FileExistsError("Feature table already exists. Re-run with --force to overwrite.")
 
     p, fmt, note = write_auto(out_df, base_no_ext)

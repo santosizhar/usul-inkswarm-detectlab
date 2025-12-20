@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-from typing import Any, Dict, Tuple
+import platform
+import subprocess
+import sys
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -21,9 +24,45 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import average_precision_score, roc_auc_score
 import joblib
+
+
+def _env_diagnostics() -> dict[str, Any]:
+    """Best-effort environment diagnostics for crash triage.
+
+    Stored in metrics.json under meta.env.
+    """
+    env: dict[str, Any] = {
+        "python": sys.version.replace("\n", " "),
+        "platform": platform.platform(),
+    }
+    try:
+        import sklearn  # type: ignore
+
+        env["sklearn"] = getattr(sklearn, "__version__", None)
+    except Exception:
+        env["sklearn"] = None
+    try:
+        import pandas as _pd  # type: ignore
+
+        env["pandas"] = getattr(_pd, "__version__", None)
+    except Exception:
+        env["pandas"] = None
+    try:
+        import pyarrow as _pa  # type: ignore
+
+        env["pyarrow"] = getattr(_pa, "__version__", None)
+    except Exception:
+        env["pyarrow"] = None
+    try:
+        from threadpoolctl import threadpool_info  # type: ignore
+
+        env["threadpools"] = threadpool_info()
+    except Exception:
+        env["threadpools"] = None
+    return env
 
 
 LABEL_COLS = ["label_replicators", "label_the_mule", "label_the_chameleon"]
@@ -66,21 +105,65 @@ def _fit_logreg(cfg: AppConfig, X: pd.DataFrame, y: np.ndarray) -> Pipeline:
     return pipe
 
 
-def _fit_hgb(cfg: AppConfig, X: pd.DataFrame, y: np.ndarray) -> Pipeline:
-    c = cfg.baselines.login_attempt.hgb
-    model = HistGradientBoostingClassifier(
-        max_iter=c.max_iter,
-        learning_rate=c.learning_rate,
+def _fit_rf(cfg: AppConfig, X: pd.DataFrame, y: np.ndarray) -> Pipeline:
+    c = cfg.baselines.login_attempt.rf
+    model = RandomForestClassifier(
+        n_estimators=c.n_estimators,
         max_depth=c.max_depth,
-        l2_regularization=c.l2_regularization,
-        early_stopping=c.early_stopping,
-        validation_fraction=c.validation_fraction,
-        n_iter_no_change=c.n_iter_no_change,
+        min_samples_leaf=c.min_samples_leaf,
+        max_features=c.max_features,
+        n_jobs=1,  # deterministic + avoids BLAS/OpenMP surprises
         random_state=cfg.run.seed,
     )
     pipe = Pipeline(steps=[("imputer", SimpleImputer(strategy="constant", fill_value=0.0)), ("model", model)])
     pipe.fit(X, y)
     return pipe
+
+
+def _fit_hgb_in_subprocess(
+    *,
+    cfg_path: Path,
+    run_id: str,
+    label: str,
+    out_dir: Path,
+) -> tuple[Path, dict[str, Any]]:
+    """Fit HGB in a subprocess to avoid hard-crashing the parent process.
+
+    Some platforms/wheels can abort the interpreter during HGB `.fit()`.
+    Running in a subprocess lets us capture a clear failure signal and continue.
+    """
+    cmd = [
+        sys.executable,
+        "-m",
+        "inkswarm_detectlab.models.hgb_worker",
+        "--config",
+        str(cfg_path),
+        "--run-id",
+        run_id,
+        "--label",
+        label,
+        "--out-dir",
+        str(out_dir),
+    ]
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    if p.returncode != 0:
+        info = {
+            "status": "failed",
+            "returncode": int(p.returncode),
+            "stdout_tail": (p.stdout or "").strip()[-2000:],
+            "stderr_tail": (p.stderr or "").strip()[-2000:],
+        }
+        raise RuntimeError(
+            "HGB worker failed (likely native crash). "
+            f"returncode={p.returncode}. stderr_tail={info['stderr_tail'][:400]}"
+        )
+    try:
+        payload = json.loads((p.stdout or "").strip())
+    except Exception as e:
+        raise RuntimeError(f"HGB worker returned non-JSON output. stdout_tail={(p.stdout or '')[-400:]}") from e
+    model_path = Path(payload["model_path"]).resolve()
+    meta = payload.get("meta", {}) or {}
+    return model_path, meta
 
 
 def _score_model(model: Pipeline, X: pd.DataFrame) -> np.ndarray:
@@ -93,7 +176,13 @@ def _score_model(model: Pipeline, X: pd.DataFrame) -> np.ndarray:
     return model.predict(X).astype(float)
 
 
-def run_login_baselines_for_run(cfg: AppConfig, *, run_id: str, force: bool = False) -> Path:
+def run_login_baselines_for_run(
+    cfg: AppConfig,
+    *,
+    run_id: str,
+    force: bool = False,
+    cfg_path: Path | None = None,
+) -> Path:
     """Train baseline models on login_attempt features and write uncommitted artifacts."""
     rdir = run_dir_for(cfg.paths.runs_dir, run_id)
     mpath = manifest_path(rdir)
@@ -101,7 +190,7 @@ def run_login_baselines_for_run(cfg: AppConfig, *, run_id: str, force: bool = Fa
 
     # Ensure features exist (build if missing)
     feat_base = rdir / "features" / "login_attempt" / "features"
-    if not (feat_base.with_suffix(".parquet").exists() or feat_base.with_suffix(".csv").exists()):
+    if not feat_base.with_suffix(".parquet").exists():
         build_login_features_for_run(cfg, run_id=run_id, force=False)
 
     df = _load_features(cfg, rdir)
@@ -138,21 +227,85 @@ def run_login_baselines_for_run(cfg: AppConfig, *, run_id: str, force: bool = Fa
             "train_rows": int(len(df_train)),
             "time_eval_rows": int(len(df_time)),
             "user_holdout_rows": int(len(df_hold)),
+            "env": _env_diagnostics(),
         },
     }
 
+    def _metrics_at_threshold(y_true: np.ndarray, scores: np.ndarray, thr: float) -> dict[str, float]:
+        """Compute fpr/recall/precision for a fixed threshold."""
+        y = y_true.astype(int)
+        s = scores.astype(float)
+        neg = (y == 0)
+        pos = (y == 1)
+        n_neg = int(neg.sum())
+        n_pos = int(pos.sum())
+        preds = (s >= float(thr))
+        fp = int((preds & neg).sum())
+        tp = int((preds & pos).sum())
+        fpr = (fp / n_neg) if n_neg else 0.0
+        recall = (tp / n_pos) if n_pos else 0.0
+        precision = (tp / int(preds.sum())) if int(preds.sum()) else 0.0
+        return {"fpr": float(fpr), "recall": float(recall), "precision": float(precision)}
+
+    def _top_features(model: Any, feature_names: list[str], *, k: int = 20) -> list[dict[str, Any]]:
+        """Extract top features for reporting (best-effort, model-dependent)."""
+        rows: list[dict[str, Any]] = []
+        core = model
+        if hasattr(model, "named_steps") and "model" in getattr(model, "named_steps", {}):
+            core = model.named_steps["model"]
+
+        if hasattr(core, "coef_"):
+            coefs = getattr(core, "coef_")
+            if coefs is not None:
+                w = np.ravel(coefs)
+                idx = np.argsort(np.abs(w))[::-1][:k]
+                for i in idx:
+                    rows.append({"feature": feature_names[int(i)], "weight": float(w[int(i)])})
+        elif hasattr(core, "feature_importances_"):
+            imp = getattr(core, "feature_importances_")
+            if imp is not None:
+                w = np.ravel(imp)
+                idx = np.argsort(w)[::-1][:k]
+                for i in idx:
+                    rows.append({"feature": feature_names[int(i)], "importance": float(w[int(i)])})
+        return rows
+
     # Train per-label per-model
+    had_failures = False
     for label, y_tr in ys_train.items():
         results["labels"][label] = {}
         for model_name in bcfg.models:
-            if model_name == "logreg":
-                model = _fit_logreg(cfg, X_train, y_tr)
-            elif model_name == "hgb":
-                model = _fit_hgb(cfg, X_train, y_tr)
-            else:
-                raise ValueError(f"Unknown model: {model_name}")
+            model: Pipeline | None = None
+            model_meta: dict[str, Any] = {}
+            try:
+                if model_name == "logreg":
+                    model = _fit_logreg(cfg, X_train, y_tr)
+                elif model_name == "rf":
+                    model = _fit_rf(cfg, X_train, y_tr)
+                elif model_name == "hgb":
+                    if cfg_path is None:
+                        raise ValueError("HGB requested but cfg_path was not provided (needed for subprocess worker).")
+                    # Fit in subprocess; then load back for scoring.
+                    abs_model_path, model_meta = _fit_hgb_in_subprocess(
+                        cfg_path=cfg_path,
+                        run_id=run_id,
+                        label=label,
+                        out_dir=out_dir,
+                    )
+                    model = joblib.load(abs_model_path)
+                else:
+                    raise ValueError(f"Unknown model: {model_name}")
+            except Exception as e:
+                had_failures = True
+                results["labels"][label][model_name] = {
+                    "status": "failed",
+                    "error": str(e),
+                    "meta": model_meta,
+                }
+                continue
 
             # Scores
+            s_train = _score_model(model, X_train)
             s_time = _score_model(model, X_time)
             s_hold = _score_model(model, X_hold)
 
@@ -160,6 +313,7 @@ def run_login_baselines_for_run(cfg: AppConfig, *, run_id: str, force: bool = Fa
             y_time = ys_time[label]
             y_hold = ys_hold[label]
 
+            ap_train = float(average_precision_score(y_tr, s_train)) if len(y_tr) else 0.0
             ap_time = float(average_precision_score(y_time, s_time)) if len(y_time) else 0.0
             ap_hold = float(average_precision_score(y_hold, s_hold)) if len(y_hold) else 0.0
             try:
@@ -171,32 +325,48 @@ def run_login_baselines_for_run(cfg: AppConfig, *, run_id: str, force: bool = Fa
             except Exception:
                 roc_hold = 0.0
 
-            thr_time = choose_threshold_for_fpr(y_time, s_time, bcfg.target_fpr)
-            thr_hold = choose_threshold_for_fpr(y_hold, s_hold, bcfg.target_fpr)
+            # D-0004 contract: choose threshold on TRAIN only, then apply to other splits.
+            thr_train = choose_threshold_for_fpr(y_tr, s_train, bcfg.target_fpr)
+            time_at_train_thr = _metrics_at_threshold(y_time, s_time, thr_train.threshold)
+            hold_at_train_thr = _metrics_at_threshold(y_hold, s_hold, thr_train.threshold)
 
-            # Persist model
+            # Persist model (for hgb this may already exist; overwrite consistently)
             model_path = out_dir / f"{label}__{model_name}.joblib"
-            joblib.dump(model, model_path)
+            try:
+                joblib.dump(model, model_path)
+            except Exception:
+                # If it was written by a worker and is already there, ignore.
+                pass
 
-            results["labels"][label][model_name] = {
+            entry: dict[str, Any] = {
+                "status": "ok",
+                "train": {
+                    "pr_auc": ap_train,
+                    "threshold_for_fpr": thr_train.threshold,
+                    "fpr": thr_train.fpr,
+                    "recall": thr_train.recall,
+                    "precision": thr_train.precision,
+                },
                 "time_eval": {
                     "pr_auc": ap_time,
                     "roc_auc": roc_time,
-                    "threshold_for_fpr": thr_time.threshold,
-                    "fpr": thr_time.fpr,
-                    "recall": thr_time.recall,
-                    "precision": thr_time.precision,
+                    "threshold_used": thr_train.threshold,
+                    **time_at_train_thr,
                 },
                 "user_holdout": {
                     "pr_auc": ap_hold,
                     "roc_auc": roc_hold,
-                    "threshold_for_fpr": thr_hold.threshold,
-                    "fpr": thr_hold.fpr,
-                    "recall": thr_hold.recall,
-                    "precision": thr_hold.precision,
+                    "threshold_used": thr_train.threshold,
+                    **hold_at_train_thr,
                 },
                 "model_path": str(model_path.relative_to(cfg.paths.runs_dir)),
+                "meta": model_meta,
             }
+
+            if bcfg.report_top_features:
+                entry["top_features"] = _top_features(model, list(X_train.columns))
+
+            results["labels"][label][model_name] = entry
 
     # Write artifacts
     metrics_path = out_dir / "metrics.json"
@@ -211,6 +381,13 @@ def run_login_baselines_for_run(cfg: AppConfig, *, run_id: str, force: bool = Fa
     manifest["artifacts"] = artifacts
     write_manifest(mpath, manifest)
 
+    # Fail-closed: if any requested model failed, exit non-zero.
+    if had_failures:
+        raise RuntimeError(
+            "One or more baseline models failed. See metrics.json/report.md for details. "
+            "If this is HGB, it may be a platform-specific native crash; keep it experimental until resolved."
+        )
+
     return rdir
 
 
@@ -223,15 +400,82 @@ def _render_report(results: dict[str, Any]) -> str:
     meta = results.get("meta", {}) or {}
     lines.append(f"- rows: train={meta.get('train_rows')}, time_eval={meta.get('time_eval_rows')}, user_holdout={meta.get('user_holdout_rows')}")
     lines.append("")
+    # --- Summary table (CR-0002 requirement)
+    lines.append("## Summary table")
+    lines.append("")
+    lines.append(
+        "| label | model | train PR-AUC | train thr | train FPR | train recall | time_eval PR-AUC | time_eval FPR | time_eval recall | user_holdout PR-AUC | user_holdout FPR | user_holdout recall |"
+    )
+    lines.append(
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+    )
+    for label, m in (results.get("labels") or {}).items():
+        for model_name, mm in (m or {}).items():
+            if (mm or {}).get("status") != "ok":
+                continue
+            tr = mm.get("train") or {}
+            t = mm.get("time_eval") or {}
+            h = mm.get("user_holdout") or {}
+            lines.append(
+                "| {label} | {model} | {tr_ap:.4f} | {thr:.6g} | {tr_fpr:.4f} | {tr_rec:.4f} | {t_ap:.4f} | {t_fpr:.4f} | {t_rec:.4f} | {h_ap:.4f} | {h_fpr:.4f} | {h_rec:.4f} |".format(
+                    label=label,
+                    model=model_name,
+                    tr_ap=float(tr.get("pr_auc", 0.0)),
+                    thr=float(tr.get("threshold_for_fpr", float("nan"))),
+                    tr_fpr=float(tr.get("fpr", 0.0)),
+                    tr_rec=float(tr.get("recall", 0.0)),
+                    t_ap=float(t.get("pr_auc", 0.0)),
+                    t_fpr=float(t.get("fpr", 0.0)),
+                    t_rec=float(t.get("recall", 0.0)),
+                    h_ap=float(h.get("pr_auc", 0.0)),
+                    h_fpr=float(h.get("fpr", 0.0)),
+                    h_rec=float(h.get("recall", 0.0)),
+                )
+            )
+    lines.append("")
+
     lines.append("## Per-label metrics")
     lines.append("")
     for label, m in (results.get("labels") or {}).items():
         lines.append(f"### {label}")
         for model_name, mm in (m or {}).items():
-            t = mm["time_eval"]
-            h = mm["user_holdout"]
+            status = (mm or {}).get("status")
+            if status == "failed":
+                lines.append(f"- **{model_name}** — ❌ failed")
+                err = (mm or {}).get("error")
+                if err:
+                    lines.append(f"  - error: {err}")
+                lines.append("")
+                continue
+            tr = mm.get("train") or {}
+            t = mm.get("time_eval") or {}
+            h = mm.get("user_holdout") or {}
+
+            thr = tr.get("threshold_for_fpr", float("nan"))
             lines.append(f"- **{model_name}**")
-            lines.append(f"  - time_eval: PR-AUC={t['pr_auc']:.4f}, ROC-AUC={t['roc_auc']:.4f}, thr={t['threshold_for_fpr']:.6g}, FPR={t['fpr']:.4f}, recall={t['recall']:.4f}")
-            lines.append(f"  - user_holdout: PR-AUC={h['pr_auc']:.4f}, ROC-AUC={h['roc_auc']:.4f}, thr={h['threshold_for_fpr']:.6g}, FPR={h['fpr']:.4f}, recall={h['recall']:.4f}")
+            lines.append(
+                "  - train (threshold selection): "
+                f"PR-AUC={tr.get('pr_auc', 0.0):.4f}, "
+                f"thr={thr:.6g}, FPR={tr.get('fpr', 0.0):.4f}, recall={tr.get('recall', 0.0):.4f}"
+            )
+            lines.append(
+                "  - time_eval (apply train threshold): "
+                f"PR-AUC={t.get('pr_auc', 0.0):.4f}, ROC-AUC={t.get('roc_auc', 0.0):.4f}, "
+                f"thr={t.get('threshold_used', thr):.6g}, FPR={t.get('fpr', 0.0):.4f}, recall={t.get('recall', 0.0):.4f}"
+            )
+            lines.append(
+                "  - user_holdout (apply train threshold): "
+                f"PR-AUC={h.get('pr_auc', 0.0):.4f}, ROC-AUC={h.get('roc_auc', 0.0):.4f}, "
+                f"thr={h.get('threshold_used', thr):.6g}, FPR={h.get('fpr', 0.0):.4f}, recall={h.get('recall', 0.0):.4f}"
+            )
+
+            if "top_features" in mm:
+                lines.append("  - top_features:")
+                for row in (mm.get("top_features") or [])[:10]:
+                    if "weight" in row:
+                        lines.append(f"    - {row['feature']}: {row['weight']:+.6g}")
+                    elif "importance" in row:
+                        lines.append(f"    - {row['feature']}: {row['importance']:.6g}")
+
         lines.append("")
     return "\n".join(lines) + "\n"

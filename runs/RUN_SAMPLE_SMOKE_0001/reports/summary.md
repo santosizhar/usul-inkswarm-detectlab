@@ -29,15 +29,15 @@
 - holdout users: 27 (14.9% of 181 unique users)
 
 ## Outputs written
-- dataset/checkout_attempt/time_eval: `RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/time_eval.csv` (csv; parquet_failed:ImportError) — 138 rows
-- dataset/checkout_attempt/train: `RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/train.csv` (csv; parquet_failed:ImportError) — 799 rows
-- dataset/checkout_attempt/user_holdout: `RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/user_holdout.csv` (csv; parquet_failed:ImportError) — 169 rows
-- dataset/login_attempt/time_eval: `RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/time_eval.csv` (csv; parquet_failed:ImportError) — 1,184 rows
-- dataset/login_attempt/train: `RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/train.csv` (csv; parquet_failed:ImportError) — 8,142 rows
-- dataset/login_attempt/user_holdout: `RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/user_holdout.csv` (csv; parquet_failed:ImportError) — 1,476 rows
-- features/login_attempt/features: `RUN_SAMPLE_SMOKE_0001/features/login_attempt/features.csv` (csv; parquet_failed:ImportError) — 10,802 rows
+- dataset/checkout_attempt/time_eval: `RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/time_eval.parquet` (parquet) — 138 rows
+- dataset/checkout_attempt/train: `RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/train.parquet` (parquet) — 799 rows
+- dataset/checkout_attempt/user_holdout: `RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/user_holdout.parquet` (parquet) — 169 rows
+- dataset/login_attempt/time_eval: `RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/time_eval.parquet` (parquet) — 1,184 rows
+- dataset/login_attempt/train: `RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/train.parquet` (parquet) — 8,142 rows
+- dataset/login_attempt/user_holdout: `RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/user_holdout.parquet` (parquet) — 1,476 rows
+- features/login_attempt/features: `RUN_SAMPLE_SMOKE_0001/features/login_attempt/features.parquet` (parquet) — 10,802 rows
 - features/login_attempt/manifest: `RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_manifest.json` (json)
 - features/login_attempt/spec: `RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_spec.json` (json)
-- raw/checkout_attempt: `RUN_SAMPLE_SMOKE_0001/raw/checkout_attempt.csv` (csv; parquet_failed:ImportError) — 1,106 rows
-- raw/login_attempt: `RUN_SAMPLE_SMOKE_0001/raw/login_attempt.csv` (csv; parquet_failed:ImportError) — 10,802 rows
+- raw/checkout_attempt: `RUN_SAMPLE_SMOKE_0001/raw/checkout_attempt.parquet` (parquet) — 1,106 rows
+- raw/login_attempt: `RUN_SAMPLE_SMOKE_0001/raw/login_attempt.parquet` (parquet) — 10,802 rows
 

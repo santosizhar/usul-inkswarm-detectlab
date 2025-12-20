@@ -1,50 +1,71 @@
 # Deferred Validation — D-0004 (BaselineLab)
 
-This delivery was **closed without running validation** (per request at the time).
+This delivery was **closed without running validation** (per request).  
 Use the steps below to validate on your machine later.
 
-> Note: As of **D-0005**, Parquet is mandatory. If you are validating using the committed fixture
-> `RUN_SAMPLE_SMOKE_0001` (which may contain legacy `.csv` artifacts), migrate it first.
-
 ## Prereqs
-- Python 3.12+ (repo target)
-- Install dependencies (includes `scikit-learn` and `pyarrow`)
+- Python 3.12+ recommended (repo target); 3.11 usually works.
+- Install dependencies (includes `scikit-learn` for BaselineLab and `pyarrow` for Parquet).
 
-## 1) Install
-```bash
-uv venv
-uv pip install -e ".[dev]"
+### Windows (PowerShell)
+```powershell
+cd inkswarm-detectlab  # repo root
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -U pip
+pip install -e .
 ```
 
-## 2) If validating a legacy run, migrate it to Parquet (D-0005 rule)
+### macOS/Linux
 ```bash
-detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
+cd inkswarm-detectlab  # repo root
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+pip install -e .
 ```
 
-Notes:
-- This writes `.parquet` files next to `.csv` files.
-- It updates `runs/<run_id>/manifest.json` to point to Parquet.
-- It does **not** delete the CSV files (migration keeps originals).
+## Validation steps (recommended order)
 
-## 3) Run tests
+### 1) Run tests (fast sanity)
 ```bash
 pytest -q
 ```
 
-## 4) FeatureLab + BaselineLab (D-0003 + D-0004)
+### 2) FeatureLab on committed fixture run
+This repo includes a fixture run: `RUN_SAMPLE_SMOKE_0001`.
+
 ```bash
 detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
+```
+
+Check:
+- `runs/RUN_SAMPLE_SMOKE_0001/features/login_attempt/features.*`
+- `runs/RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_spec.json`
+- `runs/RUN_SAMPLE_SMOKE_0001/manifest.json` includes `features/login_attempt/*`
+
+### 3) BaselineLab
+```bash
+detectlab doctor
 detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
 ```
 
-Expected outputs:
-- `runs/RUN_SAMPLE_SMOKE_0001/features/login_attempt/features.parquet`
-- `runs/RUN_SAMPLE_SMOKE_0001/models/login_attempt/reports/baseline_report.md`
-- `runs/RUN_SAMPLE_SMOKE_0001/models/login_attempt/metrics/metrics.json`
-- `runs/RUN_SAMPLE_SMOKE_0001/models/login_attempt/metrics/thresholds.json`
+Note: D-0005+ defaults are **logreg + rf**. HGB is experimental and may crash on some platforms.
 
-## 5) Optional: fresh smoke run
+Check:
+- `runs/RUN_SAMPLE_SMOKE_0001/models/login_attempt/baselines/report.md`
+- `runs/RUN_SAMPLE_SMOKE_0001/models/login_attempt/baselines/metrics.json`
+
+### 4) Legacy Parquet conversion (usually unnecessary)
+As of **D-0005**, DetectLab is Parquet-only. This command remains only to upgrade
+older runs that still contain CSV artifacts (it is a no-op if everything is already Parquet):
+
+```bash
+detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
+```
+
+## Optional: rerun a fresh smoke run
 ```bash
 detectlab run skynet -c configs/skynet_smoke.yaml
-# then migrate (if needed) and repeat steps 3–4 with the printed run_id
+# then repeat FeatureLab + BaselineLab using the printed run_id
 ```
