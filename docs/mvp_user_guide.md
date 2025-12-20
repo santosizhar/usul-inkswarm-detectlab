@@ -27,7 +27,24 @@ The MVP focuses on one event table: **`login_attempt`**.
 
 ---
 
-## The simplest way to validate everything (recommended)
+## The simplest way to run the MVP (recommended)
+
+Use the single MVP command. It runs the full pipeline (best-effort) and produces a **shareable HTML viewer**.
+
+```bash
+detectlab run mvp -c configs/skynet_mvp.yaml
+```
+
+What it produces (inside `runs/<run_id>/`):
+- `reports/mvp_handover.md` — what to open / what to look at
+- `share/ui_bundle/index.html` — stakeholder-friendly results viewer
+- `reports/summary.md` and `reports/baselines_login_attempt.md` — readable reports
+
+If a step fails, the command will still write whatever it can and tell you where to look.
+
+---
+
+## The simplest way to validate everything (Release Readiness)
 
 Run **Release Readiness** (RR). It runs the full pipeline **twice** and checks determinism.
 
@@ -59,12 +76,12 @@ It also writes a markdown evidence note under:
 
 ### 1) Generate synthetic data (SKYNET)
 ```bash
-detectlab run skynet -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --force
+detectlab run skynet -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001
 ```
 
 ### 2) Build features (FeatureLab)
 ```bash
-detectlab features build -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --event all --force
+detectlab features build -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --event login
 ```
 
 ### 3) Train and evaluate baselines (BaselineLab)
@@ -73,7 +90,7 @@ MVP baseline set is locked to:
 - `rf` (Random Forest)
 
 ```bash
-detectlab baselines run -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --force
+detectlab baselines run -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001
 ```
 
 ---
@@ -115,9 +132,12 @@ Every meaningful change should produce:
 To share results with non-technical stakeholders, the easiest path is the **static HTML viewer**.
 
 ### Option A — Static HTML viewer (recommended)
-Generate a self-contained folder you can send via email/Drive/Slack:
+If you ran `detectlab run mvp`, the viewer is already created at:
+- `runs/<run_id>/share/ui_bundle/index.html`
+
+If you want a **multi-run comparison** (up to 5), generate a bundle explicitly:
 ```bash
-python -m inkswarm_detectlab ui export -c configs/skynet_mvp.yaml --run-ids RUN_ID_1,RUN_ID_2 --out-dir ui_bundle
+detectlab ui export -c configs/skynet_mvp.yaml --run-ids RUN_ID_1,RUN_ID_2 --out-dir ui_bundle
 ```
 - Supports up to **5** runs (`nmax=5`) for side-by-side comparison.
 - Open `ui_bundle/index.html` in any modern browser (no server needed).
@@ -132,3 +152,18 @@ python -m inkswarm_detectlab ui export -c configs/skynet_mvp.yaml --run-ids RUN_
 ## Lore (optional)
 Lore exists to make the project memorable and cohesive. It is separate from the technical docs:
 - `docs/lore/world_bible.md`
+## Diagnostics: slices + stability (EvalLab)
+
+After baselines run, DetectLab produces two extra reports under `runs/<run_id>/reports/`:
+
+- `eval_stability_login_attempt.md` — **threshold stability** + split-to-split performance drift
+- `eval_slices_login_attempt.md` — performance by **playbook archetype** and simple covariates (MFA, country, etc.)
+
+How to read them (non-technical):
+
+- **Holdout** is the most important sanity check: “does this still work on *new users*?”
+- **Time Eval** checks whether performance shifts across time (drift).
+- The **threshold** is chosen on Train so that false alarms stay low (1% FPR).  
+  Stability asks: “if we keep that same threshold, does recall collapse on other splits?”
+
+If you only read one thing, read the **stability table** at the top of `eval_stability_login_attempt.md`.

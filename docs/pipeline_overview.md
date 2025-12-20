@@ -10,8 +10,24 @@ A run is identified by a `run_id`. All artifacts for that run live under:
 - `runs/<run_id>/dataset/` — leakage-aware dataset splits per event table (Parquet + manifests)
 - `runs/<run_id>/features/` — FeatureLab outputs (features table + spec)
 - `runs/<run_id>/models/` — BaselineLab outputs (models + metrics + report)
+- `runs/<run_id>/reports/eval_*.md` — EvalLab diagnostics (slices + stability)
+- `runs/<run_id>/reports/eval_*.json` — machine-readable diagnostics payloads
 - `runs/<run_id>/manifest.json` — inventory + content hashes for each artifact
 - `runs/<run_id>/reports/summary.md` — human-readable summary (counts, splits, labels)
+
+## One-command MVP run (D-0009+)
+
+The MVP orchestrator now includes **EvalLab diagnostics** after baselines.
+
+For the shareable MVP workflow (stakeholders), use:
+
+```bash
+detectlab run mvp -c configs/skynet_mvp.yaml
+```
+
+This produces two stakeholder-facing artifacts:
+- `runs/<run_id>/share/ui_bundle/index.html` — static viewer (open in browser, no server)
+- `runs/<run_id>/reports/mvp_handover.md` — what to open / what to look at
 
 ### BaselineLab artifacts (login-first for MVP)
 Within `runs/<run_id>/models/login_attempt/baselines/`:

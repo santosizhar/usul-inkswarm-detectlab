@@ -48,6 +48,7 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
         "timezone": manifest.get("timezone", getattr(cfg, "timezone", None)),
         "artifacts": {},
         "baselines": {},
+        "eval": {},
         "notes": [],
     }
 
@@ -77,6 +78,44 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
             out["notes"].append(f"Failed to read baselines metrics: {e}")
     else:
         out["notes"].append("Baselines metrics not found (run may be pre-baselines or baselines failed).")
+
+
+    # Eval diagnostics (login_attempt) — derived from on-disk reports (no parquet read here)
+    slices_md = rdir / "reports" / "eval_slices_login_attempt.md"
+    stab_md = rdir / "reports" / "eval_stability_login_attempt.md"
+    stab_json = rdir / "reports" / "eval_stability_login_attempt.json"
+    if slices_md.exists() or stab_md.exists():
+        out["eval"]["login_attempt"] = {
+            "slices_report": str(slices_md) if slices_md.exists() else None,
+            "stability_report": str(stab_md) if stab_md.exists() else None,
+            "stability_summary": None,
+        }
+        if stab_json.exists():
+            try:
+                payload = _read_json(stab_json)
+                # Build a compact table for the UI: label x model on primary split (user_holdout)
+                table = []
+                for model_name, mobj in (payload.get("models") or {}).items():
+                    for label, lobj in (mobj.get("labels") or {}).items():
+                        hold = (lobj.get("user_holdout") or {})
+                        time = (lobj.get("time_eval") or {})
+                        table.append({
+                            "label": label,
+                            "model": model_name,
+                            "train_threshold": lobj.get("train_threshold"),
+                            "holdout_pr_auc": hold.get("pr_auc"),
+                            "holdout_recall": hold.get("recall_at_train_thr"),
+                            "time_pr_auc": time.get("pr_auc"),
+                            "time_recall": time.get("recall_at_train_thr"),
+                            "delta_recall_hold_minus_time": (hold.get("recall_at_train_thr") or 0.0) - (time.get("recall_at_train_thr") or 0.0),
+                        })
+                out["eval"]["login_attempt"]["stability_summary"] = {
+                    "primary_split": "user_holdout",
+                    "rows": table,
+                    "status": payload.get("status"),
+                }
+            except Exception as e:
+                out["notes"].append(f"Failed to read eval stability JSON: {e}")
 
     # Summary report (optional)
     summary_path = rdir / "reports" / "summary.md"

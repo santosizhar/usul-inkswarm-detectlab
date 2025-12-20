@@ -13,6 +13,7 @@ from .features import build_login_features_for_run, build_checkout_features_for_
 from .models import run_login_baselines_for_run
 from .ui.summarize import write_ui_summary
 from .ui.bundle import export_ui_bundle
+from .mvp.orchestrator import run_mvp
 from .utils.parquetify import parquetify_run
 from .io.manifest import read_manifest
 from .io.paths import manifest_path
@@ -54,6 +55,7 @@ run_app = typer.Typer(add_completion=False, help="End-to-end pipeline")
 features_app = typer.Typer(add_completion=False, help="Feature building")
 baselines_app = typer.Typer(add_completion=False, help="Baseline models")
 ui_app = typer.Typer(add_completion=False, help="Shareable UI bundles (static HTML)")
+eval_app = typer.Typer(add_completion=False, help="Evaluation diagnostics (slices + stability)")
 
 
 app.add_typer(schemas_app, name="schemas")
@@ -64,6 +66,7 @@ app.add_typer(run_app, name="run")
 app.add_typer(features_app, name="features")
 app.add_typer(baselines_app, name="baselines")
 app.add_typer(ui_app, name="ui")
+app.add_typer(eval_app, name="eval")
 
 
 
@@ -278,6 +281,48 @@ def run_skynet(
     _print_artifacts(rdir)
 
 
+@run_app.command("mvp")
+def run_mvp_cmd(
+    config: Optional[Path] = typer.Argument(None),
+    *,
+    config_opt: Optional[Path] = typer.Option(None, "--config", "-c", help="Path to YAML config."),
+    run_id: Optional[str] = typer.Option(None, "--run-id", help="Override run_id (optional). Recommended to omit."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing artifacts where supported."),
+):
+    """MVP orchestrator: best-effort end-to-end run for non-technical sharing.
+
+    Steps (best effort):
+      1) Generate raw + build datasets (SKYNET)
+      2) Build features (login only; fastest)
+      3) Train baselines (login_attempt: logreg + rf)
+      4) Write ui_summary.json
+      5) Export shareable HTML bundle
+      6) Write stakeholder handover (mvp_handover.md)
+
+    If a step fails, the orchestrator will continue when possible and write a clear failure summary.
+    """
+    _require_pyarrow()
+    cfg_path = _resolve_config(config, config_opt)
+    rdir, summary = run_mvp(cfg_path=cfg_path, run_id=run_id, force=force)
+
+    # Console summary (stakeholder-friendly).
+    typer.echo(str(rdir))
+    for row in summary.get("steps", []):
+        status = row.get("status")
+        name = row.get("name")
+        msg = row.get("message") or ""
+        if status == "ok":
+            typer.echo(f"OK   - {name}{(': ' + msg) if msg else ''}")
+        elif status == "skipped":
+            typer.echo(f"SKIP - {name}{(': ' + msg) if msg else ''}")
+        else:
+            typer.echo(f"FAIL - {name}{(': ' + msg) if msg else ''}")
+
+    _print_artifacts(rdir)
+    if summary.get("status") != "ok":
+        raise typer.Exit(code=1)
+
+
 
 
 @ui_app.command("summarize")
@@ -315,3 +360,23 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+@eval_app.command("run")
+def eval_run(
+    run_id: str = typer.Option(..., "--run-id", help="Run id under runs/") ,
+    cfg_path: Optional[Path] = typer.Option(None, "--config", help="Config path (for paths + thresholds)") ,
+    force: bool = typer.Option(False, "--force", help="Recompute even if outputs exist") ,
+):
+    """Compute evaluation diagnostics (slices + stability) for a run."""
+    _require_pyarrow()
+    if cfg_path is None:
+        raise typer.BadParameter("--config is required for eval (needs run paths + thresholds)")
+    cfg = load_config(cfg_path)
+    out = run_login_eval_for_run(cfg, run_id=run_id, force=force)
+    typer.echo(f"Eval status: {out.status}")
+    if out.slices_md: typer.echo(f"- slices: {out.slices_md}")
+    if out.stability_md: typer.echo(f"- stability: {out.stability_md}")
+    if out.notes:
+        typer.echo("Notes:")
+        for n in out.notes: typer.echo(f"- {n}")

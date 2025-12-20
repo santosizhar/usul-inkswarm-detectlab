@@ -264,22 +264,20 @@ def build_login_features(
                     df[hsum] = _rolling_sum_by_time(df, group_key=gkey, value_col="support_handle_seconds", window=w.label, strict_past_only=strict_past_only)
                     feature_cols.append(hsum)
 
+    # Cross-event context (checkout history as context for login)
+    if include_cross_event and (checkout_df is not None) and (len(checkout_df) > 0):
+        df, extra_cols = add_cross_event_context(
+            df,
+            checkout_df,
+            other_event="checkout_attempt",
+            windows=windows,
+            entities=entities,
+            strict_past_only=strict_past_only,
+        )
+        feature_cols.extend(extra_cols)
 
-
-# Cross-event context (checkout history as context for login)
-if include_cross_event and (checkout_df is not None) and (len(checkout_df) > 0):
-    df, extra_cols = add_cross_event_context(
-        df,
-        checkout_df,
-        other_event="checkout_attempt",
-        windows=windows,
-        entities=entities,
-        strict_past_only=strict_past_only,
-    )
-    feature_cols.extend(extra_cols)
-    # Cleanup temp
+    # Cleanup temp columns and ensure numeric features are numeric.
     df.drop(columns=["_is_success", "_is_failure", "_is_challenge", "_is_lockout", "_support_contacted"], inplace=True, errors="ignore")
-
     for c in feature_cols:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)

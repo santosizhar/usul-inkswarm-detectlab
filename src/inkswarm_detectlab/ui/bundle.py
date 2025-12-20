@@ -127,6 +127,11 @@ th{color:var(--muted); font-weight:600; font-size:12px}
 code{background:#0f1626; border:1px solid var(--line); padding:2px 6px; border-radius:6px}
 .foot{margin-top:18px; color:var(--muted)}
 .foot h2{color:var(--text); font-size:14px}
+
+.panel{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,0.02)}
+.mini{width:100%;border-collapse:collapse;margin-top:8px}
+.mini th,.mini td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;font-size:12px}
+.warn{color:#fbbf24;font-weight:600}
 """.strip() + "\n"
 
     # app.js embeds all data to avoid fetch/CORS issues on file://
@@ -215,6 +220,32 @@ window.__RUN_DATA__ = {json.dumps(data, indent=2)};
       }}
       tbl.appendChild(body);
       card.appendChild(tbl);
+
+
+      // Diagnostics (Slices + Stability)
+      const ev = r.eval && r.eval.login_attempt ? r.eval.login_attempt : null;
+      if (ev) {{
+        const diag = document.createElement("div");
+        diag.className = "panel";
+        let html = `<h3>Diagnostics</h3>`;
+        if (ev.stability_summary && ev.stability_summary.rows && ev.stability_summary.rows.length) {{
+          const rows = ev.stability_summary.rows.slice(0);
+          html += `<div class="small">Primary truth split: <b>${{ev.stability_summary.primary_split || "user_holdout"}}</b></div>`;
+          html += `<table class="mini"><thead><tr><th>Label</th><th>Model</th><th>Holdout PR-AUC</th><th>Holdout Recall@thr</th><th>Time Recall@thr</th><th>ΔRecall (Hold-Time)</th></tr></thead><tbody>`;
+          rows.forEach((rr) => {{
+            html += `<tr><td><code>${{rr.label}}</code></td><td><code>${{rr.model}}</code></td><td>${{fmt(rr.holdout_pr_auc)}}</td><td>${{fmt(rr.holdout_recall)}}</td><td>${{fmt(rr.time_recall)}}</td><td>${{fmt(rr.delta_recall_hold_minus_time)}}</td></tr>`;
+          }});
+          html += `</tbody></table>`;
+          html += `<div class="small">For deeper breakdowns, see the slice report: <code>${{(ev.slices_report || "reports/eval_slices_login_attempt.md")}}</code></div>`;
+        }} else {{
+          html += `<div class="small"><span class="warn">Diagnostics not found</span> — run may have skipped evaluation or artifacts are missing.</div>`;
+        }}
+        if (ev.stability_report) {{
+          html += `<div class="small">Stability report path: <code>${{ev.stability_report}}</code></div>`;
+        }}
+        diag.innerHTML = html;
+        card.appendChild(diag);
+      }}
 
       // Notes
       if (r.notes && r.notes.length) {{
