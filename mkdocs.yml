@@ -5,6 +5,7 @@ nav:
   - Home: index.md
   - MVP User Guide: mvp_user_guide.md
   - Runbook: runbook.md
+  - Notebooks: notebooks.md
   - Repo Map: repo_map.md
   - Getting Started: getting_started.md
   - Pipeline Overview: pipeline_overview.md

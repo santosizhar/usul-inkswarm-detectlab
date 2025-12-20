@@ -84,3 +84,25 @@ Unzip it somewhere else (or on another machine), then open:
 - `share/ui_bundle/index.html`
 
 The UI should render, with no dependency on the original repo.
+## Notebooks (optional)
+
+These are **outside** the git/CLI “execution” commands, but they are useful for interactive validation.
+
+1) Ensure you have a completed run:
+- `runs/RUN_XXX_0005/reports/summary.md` exists.
+
+2) Install Jupyter:
+```bash
+pip install jupyter
+```
+
+3) Start notebooks (repo root):
+```bash
+jupyter notebook
+```
+
+4) Open `docs/notebooks.md` for notebook-by-notebook guidance.
+
+Validation:
+- `02_featurelab_login_attempt.ipynb` should display a non-empty feature table.
+- `03_baselinelab_login_attempt.ipynb` should print and preview `report.md`.

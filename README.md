@@ -9,6 +9,38 @@ If you only read one doc:
 
 ---
 
+## Quickstart (git + run)
+
+```bash
+git clone https://github.com/santosizhar/usul-inkswarm-detectlab.git
+cd usul-inkswarm-detectlab
+git checkout main
+git pull
+```
+
+Create a virtualenv and install:
+
+```bash
+python -m venv .venv
+# Windows PowerShell:
+#   .\.venv\Scripts\Activate.ps1
+# macOS/Linux:
+#   source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
+```
+
+Run a smoke pipeline (example run id: `RUN_XXX_0005`):
+
+```bash
+detectlab run skynet -c configs/skynet_smoke.yaml --run-id RUN_XXX_0005 --force
+detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_XXX_0005 --event all --force
+detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_XXX_0005 --force
+```
+
+Expected output:
+- `runs/RUN_XXX_0005/reports/summary.md`
+
 ## Locked MVP constraints (summary)
 
 - Targets: `login_attempt`, `checkout_attempt` (event-level)

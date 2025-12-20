@@ -30,7 +30,7 @@ The bundle includes:
 
 ### Treat carefully (if noted)
 - If reproducibility (RR) is marked **PROVISIONAL**, determinism has not yet been proven on the target Windows/Python environment.
-- If D-0004 validation is marked **DEFERRED**, a specific baseline validation step is pending.
+- D-0004 validation remains deferred; see `DEFERRED_VALIDATION__D-0004.md`.
 
 ## What to do with it
 - Use `user_holdout` to judge whether the model generalizes.
@@ -42,3 +42,10 @@ The bundle includes:
 - **time_eval:** a time-based split; drift check.
 - **baseline:** a standard model used as a reference point (MVP uses simple baselines).
 - **run signature:** identifiers (hashes) to uniquely reference the run configuration and code state.
+
+
+---
+
+## Validated run example
+
+This procedure was validated end-to-end with run id `RUN_XXX_0005` on 2025-12-20.

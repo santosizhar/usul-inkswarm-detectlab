@@ -18,6 +18,24 @@ DetectLab writes artifacts under:
 
 ---
 
+## 0.5) Get the code (git)
+
+```bash
+git clone https://github.com/santosizhar/usul-inkswarm-detectlab.git
+cd usul-inkswarm-detectlab
+git checkout main
+git pull
+```
+
+If you are starting from a ZIP snapshot (no git history), you can still initialize git locally:
+
+```bash
+git init
+git branch -M main
+git add .
+git commit -m "Import repo snapshot"
+```
+
 ## 1) Install (developer)
 
 From the repo root:

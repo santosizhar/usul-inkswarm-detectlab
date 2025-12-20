@@ -2,7 +2,7 @@
 
 This repo targets **Python 3.12**.
 
-On some Windows setups, native ML libraries can behave differently depending on the BLAS/OpenMP backend (MKL/OpenBLAS) and thread settings. To make runs more reproducible and easier to debug, use the guidance below.
+On some Windows setups, native ML libraries can behave differently de
 
 ## Quick diagnostics
 ```powershell
@@ -30,3 +30,11 @@ These reduce nondeterminism and avoid a class of backend/threadpool issues.
 - `rf`
 
 We will reintroduce HGB only after reproducing and resolving the crash.
+
+
+## Known-good setup
+
+- Windows 10/11
+- Python 3.12
+- `pip install -e ".[dev]"`
+- Run id example: `RUN_XXX_0005`

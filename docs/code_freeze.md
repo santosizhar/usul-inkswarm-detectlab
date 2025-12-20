@@ -2,6 +2,15 @@
 
 A Code Freeze is a deliberate snapshot point for safe handoff/restart.
 
+## Current freeze anchor (recommended)
+
+Use **CF-0005** as the default restart anchor for the current repo state:
+
+- `CODE_FREEZE__CF-0005.md`
+- `inkswarm-detectlab__MASTERPROMPT_CF-0005__Code-Freeze-Restart.md`
+
+This freeze includes a verified run example (`RUN_XXX_0005`) and stabilized docs (`docs/runbook.md`, `docs/notebooks.md`).
+
 ## What you get at CF-0001
 - A full repository snapshot through **D-0004**
 - Journals summarizing decisions and deliverables

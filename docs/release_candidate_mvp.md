@@ -1,6 +1,6 @@
 # MVP Release Candidate (D-0013) — Procedure (Fail-Closed)
 
-This is the release-candidate checklist/procedure to produce a stakeholder-sendable MVP artifact and (optionally) a release tag, and then create a freeze anchor (CF-0003).
+This is the release-candidate checklist/procedure to produce a stakeholder-sendable MVP artifact and (optionally) a release tag, and then create a freeze anchor (CF-0005).
 
 **Important:** RR-0001 is the intended authoritative reproducibility gate (Windows + Python 3.12).
 However, the final user may choose an **ADMIN CLOSE / PROVISIONAL** path (“closed for now”), which must be recorded explicitly and treated as **not proven** determinism.
@@ -35,15 +35,15 @@ python -m inkswarm_detectlab doctor
 
 ---
 
-## 2) RR-0001 (authoritative gate OR admin-close)
+## 2) RR-0002 (authoritative gate OR admin-close)
 
-### 2.1 Preferred: run RR-0001 (authoritative)
+### 2.1 Preferred: run RR-0002 (authoritative)
 ```powershell
-.\scripts\rr_mvp.ps1 -Config "configs\skynet_mvp.yaml" -RunId "RR-0001_<YYYYMMDD>_01"
+.\scripts\rr_mvp.ps1 -Config "configs\skynet_mvp.yaml" -RunId "RR-0002__01"
 ```
 
 Expected evidence folder:
-- `rr_evidence\RR-0001\RR-0001_<YYYYMMDD>_01\`
+- `rr_evidence\RR-0002\RR-0002__01\`
   - `rr_mvp.log`
   - `signature_A*.json`
   - `signature_B*.json`
@@ -53,7 +53,7 @@ Record the result in journals using `docs/rr_recording_template.md`.
 
 ### 2.2 Allowed: ADMIN CLOSE / PROVISIONAL (final user decision)
 If RR evidence is not available but the final user says to proceed “for now”:
-- Record RR-0001 as **CLOSED (ADMIN OVERRIDE / PROVISIONAL)** in journals.
+- Record RR-0002 as **CLOSED (ADMIN OVERRIDE / PROVISIONAL)** in journals.
 - Treat determinism as **not proven**.
 - Any stakeholder send should include a short caveat (“provisional”).
 
@@ -66,29 +66,29 @@ Use `docs/rr_recording_template.md` and set:
 RR scripts commonly clean A/B runs; regardless of RR path, produce a single “send” run:
 
 ```powershell
-python -m inkswarm_detectlab run mvp -c configs\skynet_mvp.yaml --run-id "MVP_SEND_<YYYYMMDD>_01"
+python -m inkswarm_detectlab run mvp -c configs\skynet_mvp.yaml --run-id "MVP_SEND__01"
 ```
 
 ### 3.1 Zip the share bundle
 Preferred (if you have the helper from D-0012):
 ```powershell
-.\scripts\make_share_zip.ps1 -RunId "MVP_SEND_<YYYYMMDD>_01"
+.\scripts\make_share_zip.ps1 -RunId "MVP_SEND__01"
 ```
 
 Fallback:
 ```powershell
-Compress-Archive -Path runs\MVP_SEND_<YYYYMMDD>_01\share\* -DestinationPath MVP_SEND_<YYYYMMDD>_01__share.zip -Force
+Compress-Archive -Path runs\MVP_SEND__01\share\* -DestinationPath MVP_SEND__01__share.zip -Force
 ```
 
 Canonical artifact to send:
-- `MVP_SEND_<YYYYMMDD>_01__share.zip`
-- Contains: `runs/<run_id>/share/` (UI bundle + reports)
+- `MVP_SEND__01__share.zip`
+- Contains: `runs//share/` (UI bundle + reports)
 
 ---
 
 ## 4) Spot-check the shareable UI
 Open:
-- `runs\MVP_SEND_<YYYYMMDD>_01\share\ui_bundle\index.html`
+- `runs\MVP_SEND__01\share\ui_bundle\index.html`
 
 Verify:
 - The summary page renders.
@@ -112,26 +112,26 @@ If running from an unpacked zip without git metadata:
 
 ---
 
-## 6) Freeze anchor (CF-0003)
+## 6) Freeze anchor (CF-0005)
 Goal: create a clean restart anchor for this release candidate state.
 
 Checklist:
-- Ensure `CODE_FREEZE__CF-0003.md` exists and is updated with:
+- Ensure `CODE_FREEZE__CF-0005.md` exists and is updated with:
   - what is included
   - known caveats / deferred validations
   - how to reproduce (commands)
-- Ensure `inkswarm-detectlab__MASTERPROMPT_CF-0003__Code-Freeze-Restart.md` exists and points to the correct “start next” ceremony/deliverable.
-- Record CF-0003 in journals using `docs/cf_0003_recording_template.md`.
+- Ensure `inkswarm-detectlab__MASTERPROMPT_CF-0005__Code-Freeze-Restart.md` exists and points to the correct “start next” ceremony/deliverable.
+- Record CF-0005 in journals using `docs/cf_0003_recording_template.md`.
 
 ---
 
 ## 7) What to send to stakeholders
 Send:
-- `MVP_SEND_<YYYYMMDD>_01__share.zip`
+- `MVP_SEND__01__share.zip`
 
 Include a short note:
-- `run_id`: `MVP_SEND_<YYYYMMDD>_01`
+- `run_id`: `MVP_SEND__01`
 - config used: `configs\skynet_mvp.yaml`
 - where to open UI: `share/ui_bundle/index.html`
 - where headline metrics are: UI landing + `share/reports/summary.md`
-- caveat if RR is provisional: “RR-0001 closed for now; determinism evidence pending”
+- caveat if RR is provisional: “RR-0002 closed for now; determinism evidence not attached”

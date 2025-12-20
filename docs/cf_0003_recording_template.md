@@ -1,12 +1,12 @@
 # CF-0003 Recording Template (Paste-ready)
 
-Use this to record the CF-0003 freeze anchor. Replace XXXX with the next journal number.
+Use this to record the CF-0003 freeze anchor. Replace 0022 with the next journal number.
 
 ---
 
-## J-XXXX — CF-0003 — MVP Release Anchor Freeze
+## J-0022 — CF-0003 — MVP Release Anchor Freeze
 
-**Date:** <YYYY-MM-DD>  
+**Date:** 2025-12-20  
 **Scope:** Freeze anchor for the current MVP release candidate state.
 
 ### Inputs
@@ -24,7 +24,7 @@ Use this to record the CF-0003 freeze anchor. Replace XXXX with the next journal
 
 ---
 
-## JM-XXXX — CF-0003 — Meta
+## JM-0022 — CF-0003 — Meta
 
 ### Files added/updated
 - (list)
