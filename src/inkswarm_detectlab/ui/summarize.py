@@ -46,12 +46,21 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
         "generated_at_utc": _now_utc_iso(),
         "run_id": run_id,
         "timezone": manifest.get("timezone", getattr(cfg, "timezone", None)),
+        "signature": {},
         "artifacts": {},
         "baselines": {},
         "eval": {},
         "notes": [],
     }
 
+
+    # Run signature (helps compare runs without reading logs)
+    out["signature"] = {
+        "config_hash": manifest.get("config_hash"),
+        "github_sha": (manifest.get("code") or {}).get("github_sha"),
+        "seed": manifest.get("seed"),
+        "schema_version": manifest.get("schema_version"),
+    }
     # Baselines (login_attempt)
     metrics_path = rdir / "models" / "login_attempt" / "baselines" / "metrics.json"
     report_path = rdir / "models" / "login_attempt" / "baselines" / "report.md"

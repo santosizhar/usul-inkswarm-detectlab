@@ -57,7 +57,7 @@ def export_ui_bundle(
   <header class="top">
     <div class="wrap">
       <div class="title">Inkswarm DetectLab — MVP Results Viewer</div>
-      <div class="subtitle">Stakeholder-friendly comparison of up to 5 runs</div>
+      <div class="subtitle">Stakeholder-friendly comparison of up to 5 runs (headline = user holdout)</div>
       <div class="meta">Generated: {_now_utc_short()}</div>
     </div>
   </header>
@@ -65,10 +65,10 @@ def export_ui_bundle(
   <main class="wrap">
     <section class="controls">
       <div class="control">
-        <label for="metric">Metric focus</label>
+        <label for="metric">View focus</label>
         <select id="metric">
-          <option value="time_eval">Time Eval (primary)</option>
-          <option value="user_holdout">User Holdout</option>
+          <option value="user_holdout" selected>User Holdout (primary)</option>
+          <option value="time_eval">Time Eval (drift check)</option>
         </select>
       </div>
       <div class="control">
@@ -181,11 +181,14 @@ window.__RUN_DATA__ = {json.dumps(data, indent=2)};
       const labels = base && base.labels ? base.labels : {{}};
       const target = base && base.target_fpr;
       const env = base && base.meta && base.meta.env ? base.meta.env : null;
+      const sig = r.signature || null;
 
       const noteBits = [];
       if (target !== null && target !== undefined) noteBits.push(`<span class="pill">Target FPR: <b>${{fmt(target)}}</b></span>`);
       if (env && env.python) noteBits.push(`<span class="pill">Python: <b>${{env.python.split(" ")[0]}}</b></span>`);
       if (env && env.platform) noteBits.push(`<span class="pill">Platform: <b>${{env.platform}}</b></span>`);
+      if (sig && sig.config_hash) noteBits.push(`<span class="pill">Config: <b>${{sig.config_hash.slice(0,8)}}</b></span>`);
+      if (sig && sig.github_sha) noteBits.push(`<span class="pill">Code: <b>${{sig.github_sha.slice(0,8)}}</b></span>`);
 
       const card = document.createElement("section");
       card.className = "card";

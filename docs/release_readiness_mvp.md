@@ -57,3 +57,8 @@ If RR fails:
 - `runs/<run_id>/features/login_attempt/features.parquet`
 - `runs/<run_id>/models/login_attempt/baselines/metrics.json`
 - `runs/<run_id>/models/login_attempt/baselines/report.md`
+
+
+### Evidence bundle layout
+
+RR should produce a tidy `runs/<run_id>/share/` folder. This is the preferred artifact to share.

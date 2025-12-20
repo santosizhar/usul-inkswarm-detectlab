@@ -10,6 +10,7 @@ from ..models import run_login_baselines_for_run
 from ..eval import run_login_eval_for_run
 from ..ui.summarize import write_ui_summary
 from ..ui.bundle import export_ui_bundle
+from ..share.evidence import export_evidence_bundle
 from ..io.paths import run_dir as run_dir_for
 
 from .handover import write_mvp_handover
@@ -102,7 +103,12 @@ def run_mvp(
         ),
     )
 
-    # Overall status
+    
+
+    # 7) Tidy share package (evidence bundle layout)
+    _step("evidence_bundle", lambda: export_evidence_bundle(run_dir=rdir))
+
+# Overall status
     fails = [s for s in summary["steps"] if s.get("status") == "fail"]
     summary["status"] = "ok" if not fails else "partial"
     return rdir, summary

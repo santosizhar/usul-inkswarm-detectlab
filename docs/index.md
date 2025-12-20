@@ -24,3 +24,5 @@ This documentation is written so a **non-technical reader** can still understand
 Lore is intentionally separated from technical docs and lives under `docs/lore/`.
 Start here:
 - `docs/lore/world_bible.md`
+
+- Ceremonies: [CR-0003 Stakeholder Defensibility Review](ceremonies/CR-0003.md)
