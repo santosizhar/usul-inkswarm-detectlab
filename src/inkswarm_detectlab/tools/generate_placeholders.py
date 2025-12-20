@@ -38,7 +38,11 @@ def generate(run_id: str = PLACEHOLDER_RUN_ID, n_rows: int = 64, runs_dir: Path 
         "ip_hash": [f"ip_{i%10:03d}" for i in range(n_rows)],
         "device_fingerprint_hash": [f"dev_{i%12:03d}" for i in range(n_rows)],
         "country": ["AR"]*n_rows,
-        "is_fraud": [bool(i % 7 == 0) for i in range(n_rows)],
+        "label_replicators": [bool(i % 21 == 0) for i in range(n_rows)],
+        "label_the_mule": [bool(i % 37 == 0) for i in range(n_rows)],
+        "label_the_chameleon": [bool(i % 29 == 0) for i in range(n_rows)],
+        "label_benign": [True] * n_rows,
+        "is_fraud": [False] * n_rows,
         "metadata_json": [json.dumps({"note":"placeholder"})]*n_rows,
         "login_result": [random.choice(["success","failure","challenge"]) for _ in range(n_rows)],
         "failure_reason": [random.choice([None,"bad_password","unknown_user","mfa_failed"]) for _ in range(n_rows)],
@@ -54,6 +58,10 @@ def generate(run_id: str = PLACEHOLDER_RUN_ID, n_rows: int = 64, runs_dir: Path 
         "support_resolution": [random.choice(["none","resolved","unresolved","escalated"]) for _ in range(n_rows)],
         "support_offset_seconds": [random.choice([None, 0, 60, 600]) for _ in range(n_rows)],
     })
+    # make benign/fraud consistent
+    any_attack = login[["label_replicators","label_the_mule","label_the_chameleon"]].any(axis=1)
+    login.loc[:, "label_benign"] = ~any_attack
+    login.loc[:, "is_fraud"] = any_attack
     login_fmt = _maybe_write(login, raw_table_path(run_dir, "login_attempt", fmt="parquet"))
 
     checkout = pd.DataFrame({
@@ -65,7 +73,7 @@ def generate(run_id: str = PLACEHOLDER_RUN_ID, n_rows: int = 64, runs_dir: Path 
         "ip_hash": [f"ip_{i%10:03d}" for i in range(n_rows)],
         "device_fingerprint_hash": [f"dev_{i%12:03d}" for i in range(n_rows)],
         "country": ["AR"]*n_rows,
-        "is_fraud": [bool(i % 11 == 0) for i in range(n_rows)],
+        "is_fraud": [False] * n_rows,
         "metadata_json": [json.dumps({"note":"placeholder"})]*n_rows,
         "payment_value": [float((i%10)+1) * 9.99 for i in range(n_rows)],
         "basket_size": [int((i%5)+1) for i in range(n_rows)],

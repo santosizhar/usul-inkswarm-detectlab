@@ -4,4 +4,3 @@ run:
   seed: 1337
 paths:
   runs_dir: runs
-  run_id: PLACEHOLDER_RUN_0001

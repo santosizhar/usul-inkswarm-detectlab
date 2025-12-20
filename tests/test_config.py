@@ -6,4 +6,4 @@ def test_load_minimal_config():
     cfg = load_config(p)
     assert cfg.run.schema_version == "v1"
     assert cfg.run.timezone == "America/Argentina/Buenos_Aires"
-    assert cfg.paths.run_id == "PLACEHOLDER_RUN_0001"
+    assert str(cfg.paths.runs_dir) == "runs"
