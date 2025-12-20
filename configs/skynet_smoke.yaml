@@ -3,10 +3,8 @@ run:
   timezone: America/Argentina/Buenos_Aires
   seed: 1337
   run_id: RUN_SAMPLE_SMOKE_0001
-
 paths:
   runs_dir: runs
-
 synthetic:
   skynet:
     start_date: 2025-12-01
@@ -21,9 +19,35 @@ synthetic:
       n_campaigns: 2
       duration_hours_min: 1
       duration_hours_max: 2
-
 dataset:
   build:
     time_split: 0.85
     user_holdout: 0.15
-    canonical_sort_keys: [event_ts, user_id, event_id]
+    canonical_sort_keys:
+    - event_ts
+    - user_id
+    - event_id
+features:
+  login_attempt:
+    enabled: true
+    windows:
+    - 1h
+    - 6h
+    - 24h
+    - 7d
+    entities:
+    - user
+    - ip
+    - device
+    strict_past_only: true
+    include_support: true
+    include_labels: true
+    include_is_fraud: true
+baselines:
+  login_attempt:
+    enabled: true
+    models:
+    - logreg
+    - hgb
+    target_fpr: 0.01
+    report_top_features: true

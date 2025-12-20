@@ -9,6 +9,7 @@ import pandas as pd
 
 from ..config.models import AppConfig, SkynetSyntheticConfig
 from ..utils.time import BA_TZ, ensure_ba
+from ..utils.hashing import stable_mod
 
 
 PLAYBOOKS = ["REPLICATORS", "THE_MULE", "THE_CHAMELEON"]
@@ -262,9 +263,9 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                     "event_id": eid,
                     "event_ts": event_ts[i],
                     "user_id": uid,
-                    "session_id": f"sess_{abs(hash((uid, h))) % 100000:05d}",
-                    "ip_hash": f"ip_{abs(hash((uid, 'ip'))) % 10000:04d}",
-                    "device_fingerprint_hash": f"dev_{abs(hash((uid, 'dev'))) % 10000:04d}",
+                    "session_id": f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}",
+                    "ip_hash": f"ip_{stable_mod(f'{uid}|ip', 10000):04d}",
+                    "device_fingerprint_hash": f"dev_{stable_mod(f'{uid}|dev', 10000):04d}",
                     "country": "AR",
                     "is_fraud": bool(is_fraud),
                     "label_replicators": bool(rep),
@@ -330,9 +331,9 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                         "event_id": eid,
                         "event_ts": event_ts[i],
                         "user_id": uid,
-                        "session_id": f"sess_{abs(hash((uid, h))) % 100000:05d}",
-                        "ip_hash": f"ip_{abs(hash((uid, 'ip'))) % 10000:04d}",
-                        "device_fingerprint_hash": f"dev_{abs(hash((uid, 'dev'))) % 10000:04d}",
+                        "session_id": f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}",
+                        "ip_hash": f"ip_{stable_mod(f'{uid}|ip', 10000):04d}",
+                        "device_fingerprint_hash": f"dev_{stable_mod(f'{uid}|dev', 10000):04d}",
                         "country": "AR",
                         "is_fraud": False,
                         "metadata_json": json.dumps(meta, separators=(",", ":"), ensure_ascii=True),
@@ -340,7 +341,7 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                         "basket_size": int(rng.integers(1, 7)),
                         "is_first_time_user": bool(rng.random() < 0.18),
                         "is_premium_user": bool(rng.random() < 0.25),
-                        "credit_card_hash": None if rng.random() < 0.15 else f"cc_{abs(hash((uid, 'cc'))) % 200000:06d}",
+                        "credit_card_hash": None if rng.random() < 0.15 else f"cc_{stable_mod(f'{uid}|cc', 200000):06d}",
                         "checkout_result": str(checkout_result),
                         "decline_reason": decline_reason,
                     }
@@ -349,6 +350,40 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
     checkout_df = pd.DataFrame(checkout_rows)
     if not checkout_df.empty:
         checkout_df["event_ts"] = pd.to_datetime(checkout_df["event_ts"], utc=False)
+    # Deterministic exact-k adverse assignment to reduce variance in small runs.
+    # Note: this keeps checkout mostly benign until SPACING GUILD, while honoring the configured rate.
+    try:
+        n = len(checkout_df)
+        if n > 0:
+            k = int(round(float(s.checkout_adverse_rate) * n))
+            k = max(0, min(k, n))
+            rng_adv = np.random.default_rng(cfg.run.seed + 77777)
+            adverse_idx = set(rng_adv.choice(n, size=k, replace=False).tolist()) if k > 0 else set()
+
+            # Default all to success.
+            checkout_df["checkout_result"] = "success"
+            checkout_df["decline_reason"] = None
+
+            if k > 0:
+                idx_list = list(adverse_idx)
+
+                # failure vs review
+                fail_or_review = rng_adv.choice(["failure", "review"], size=k, p=[0.80, 0.20])
+                checkout_df.loc[checkout_df.index[idx_list], "checkout_result"] = fail_or_review
+
+                # decline_reason only for failures
+                failure_mask = (checkout_df["checkout_result"] == "failure")
+                fcount = int(failure_mask.sum())
+                if fcount > 0:
+                    reasons = rng_adv.choice(
+                        ["insufficient_funds", "network_error", "other"],
+                        size=fcount,
+                        p=[0.40, 0.35, 0.25],
+                    )
+                    checkout_df.loc[failure_mask, "decline_reason"] = reasons
+    except Exception:
+        # If anything unexpected happens, keep the stochastic assignment.
+        pass
 
     meta = {
         "campaigns": [

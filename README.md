@@ -9,9 +9,16 @@ DetectLab is a reproducible lab to generate **event-level telemetry**, build **l
 - `support` is embedded inside `login_attempt` (not a separate event)
 - Primary entity id: `user_id` (no `account_id`)
 - Canonical timezone: `America/Argentina/Buenos_Aires`
-- Default artifact format: Parquet (fallbacks may exist for placeholders)
+- Default artifact format: Parquet (CSV fallback is allowed early; Parquet becomes mandatory by D-0005)
 
 ## Quick verification (D-0001 contract)
 ```bash
 uv run python -m inkswarm_detectlab.cli --help && uv run pytest -q
+```
+
+## FeatureLab + BaselineLab (MVP)
+```bash
+# after you have a run_id (example fixture):
+detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
+detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
 ```

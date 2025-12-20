@@ -50,3 +50,16 @@ def stable_hash_df(df: pd.DataFrame, sort_keys: list[str] | None = None, column_
 
     h = pd.util.hash_pandas_object(d, index=False).values
     return hashlib.sha256(h.tobytes()).hexdigest()
+
+
+def stable_mod(key: str, modulus: int) -> int:
+    """Stable integer in [0, modulus) derived from a string key via SHA256.
+
+    Use this instead of Python's built-in hash(), which is randomized per process.
+    """
+    if modulus <= 0:
+        raise ValueError("modulus must be > 0")
+    h = hashlib.sha256(key.encode("utf-8")).digest()
+    # take first 8 bytes as unsigned integer
+    n = int.from_bytes(h[:8], byteorder="big", signed=False)
+    return n % modulus

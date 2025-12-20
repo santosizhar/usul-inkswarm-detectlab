@@ -27,16 +27,20 @@ def read_auto(base_path_no_ext: Path) -> pd.DataFrame:
     raise FileNotFoundError(f"No table found for {base_path_no_ext} (.parquet/.csv)")
 
 
-def write_auto(df: pd.DataFrame, base_path_no_ext: Path) -> tuple[Path, str]:
+def write_auto(df: pd.DataFrame, base_path_no_ext: Path) -> tuple[Path, str, str | None]:
     """Write parquet if possible, otherwise fall back to CSV.
 
-    Returns: (actual_path, format) where format is 'parquet' or 'csv'.
+    Returns: (actual_path, format, note)
+      - format: 'parquet' or 'csv'
+      - note: None on parquet success, otherwise the parquet failure reason (short)
     """
     pq = base_path_no_ext.with_suffix(".parquet")
     try:
         write_parquet(df, pq)
-        return pq, "parquet"
-    except Exception:
+        return pq, "parquet", None
+    except Exception as e:
+        # Keep the note short and stable-ish for summary/manifest.
+        note = f"parquet_failed:{e.__class__.__name__}"
         csv = base_path_no_ext.with_suffix(".csv")
         write_csv(df, csv)
-        return csv, "csv"
+        return csv, "csv", note

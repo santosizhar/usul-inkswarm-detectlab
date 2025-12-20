@@ -6,7 +6,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 DEFAULT_SCHEMA_VERSION = "v1"
 
 
@@ -86,8 +85,76 @@ class DatasetConfig(BaseModel):
     build: DatasetBuildConfig = Field(default_factory=DatasetBuildConfig)
 
 
+# -----------------------------
+# D-0003: FeatureLab (login_attempt)
+# -----------------------------
+
+class LoginFeatureConfig(BaseModel):
+    enabled: bool = Field(default=True)
+
+    # Time windows for rolling aggregates.
+    windows: list[str] = Field(default_factory=lambda: ["1h", "6h", "24h", "7d"])
+
+    # Entities to aggregate by (safe aggregates only).
+    entities: list[Literal["user", "ip", "device"]] = Field(default_factory=lambda: ["user", "ip", "device"])
+
+    # Strict past-only leakage control.
+    strict_past_only: bool = Field(default=True)
+
+    # Include support aggregates (support is embedded inside login_attempt).
+    include_support: bool = Field(default=True)
+
+    # Include label columns in feature table (multi-label heads).
+    include_labels: bool = Field(default=True)
+
+    # Include derived is_fraud boolean.
+    include_is_fraud: bool = Field(default=True)
+
+
+class FeaturesConfig(BaseModel):
+    login_attempt: LoginFeatureConfig = Field(default_factory=LoginFeatureConfig)
+
+
+# -----------------------------
+# D-0004: BaselineLab (login_attempt)
+# -----------------------------
+
+class LogRegBaselineConfig(BaseModel):
+    C: float = Field(default=1.0, gt=0.0)
+    max_iter: int = Field(default=1000, ge=1)
+    class_weight: Literal["balanced", "none"] = Field(default="balanced")
+
+
+class HGBBaselineConfig(BaseModel):
+    # Quality-first defaults (locked): max_iter=300, early_stopping disabled unless explicitly enabled.
+    max_iter: int = Field(default=300, ge=1)
+    learning_rate: float = Field(default=0.1, gt=0.0)
+    max_depth: int | None = Field(default=None)
+    l2_regularization: float = Field(default=0.0, ge=0.0)
+
+    early_stopping: bool = Field(default=False)
+    validation_fraction: float = Field(default=0.1, gt=0.0, lt=1.0)
+    n_iter_no_change: int = Field(default=10, ge=1)
+
+
+class LoginBaselinesConfig(BaseModel):
+    enabled: bool = Field(default=True)
+    models: list[Literal["logreg", "hgb"]] = Field(default_factory=lambda: ["logreg", "hgb"])
+    target_fpr: float = Field(default=0.01, gt=0.0, lt=1.0)
+    report_top_features: bool = Field(default=True)
+
+    logreg: LogRegBaselineConfig = Field(default_factory=LogRegBaselineConfig)
+    hgb: HGBBaselineConfig = Field(default_factory=HGBBaselineConfig)
+
+
+class BaselinesConfig(BaseModel):
+    login_attempt: LoginBaselinesConfig = Field(default_factory=LoginBaselinesConfig)
+
+
 class AppConfig(BaseModel):
     run: RunConfig = Field(default_factory=RunConfig)
     paths: PathsConfig = Field(default_factory=PathsConfig)
     synthetic: SyntheticConfig = Field(default_factory=SyntheticConfig)
     dataset: DatasetConfig = Field(default_factory=DatasetConfig)
+    features: FeaturesConfig = Field(default_factory=FeaturesConfig)
+    baselines: BaselinesConfig = Field(default_factory=BaselinesConfig)
