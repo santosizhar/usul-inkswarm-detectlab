@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+dist/
+build/
+*.egg-info/
+site/
+
+runs/*
+!runs/PLACEHOLDER_RUN_0001/
+!runs/PLACEHOLDER_RUN_0001/**

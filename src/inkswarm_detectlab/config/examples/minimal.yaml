@@ -1,0 +1,7 @@
+run:
+  schema_version: v1
+  timezone: America/Argentina/Buenos_Aires
+  seed: 1337
+paths:
+  runs_dir: runs
+  run_id: PLACEHOLDER_RUN_0001
