@@ -1,0 +1,105 @@
+{
+  "artifacts": {
+    "dataset/checkout_attempt/time_eval": {
+      "content_hash": "76ab44c5b2a5f3057f6ad1d9b1b65555670ffde26d79de39b54ddd57af9c3016",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/time_eval.csv",
+      "rows": 138
+    },
+    "dataset/checkout_attempt/train": {
+      "content_hash": "5868c6c33464ae51e046f491cbef4ad586005bb9f5db2b61b8254082bbb33982",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/train.csv",
+      "rows": 799
+    },
+    "dataset/checkout_attempt/user_holdout": {
+      "content_hash": "a5864b511b53ba6e60b0801b80b8a1407fddac98203af77d0f90997732d5dddf",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/user_holdout.csv",
+      "rows": 169
+    },
+    "dataset/login_attempt/time_eval": {
+      "content_hash": "2ee8d05ed9c132e86b7f417c8bfe8beb46db02ca39ba39be6d15e264c0ad48ad",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/time_eval.csv",
+      "rows": 1184
+    },
+    "dataset/login_attempt/train": {
+      "content_hash": "e0d1a7850654d46f88297220f7411c98abc63a476b0b7a38470cff1c01daeee6",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/train.csv",
+      "rows": 8142
+    },
+    "dataset/login_attempt/user_holdout": {
+      "content_hash": "1338d441900dddd19898d83497a0e60adcd70c1d7496b22ce4022973324bd421",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/user_holdout.csv",
+      "rows": 1476
+    },
+    "raw/checkout_attempt": {
+      "content_hash": "d7a7ea9f2acd5e40d386f041b87955e94be641836425537d1a0704bb21917e5a",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/raw/checkout_attempt.csv",
+      "rows": 1106
+    },
+    "raw/login_attempt": {
+      "content_hash": "65690317bf38436c2b9aaa354d2e36596b969fc494a68a6ecb8f421182b110c3",
+      "format": "csv",
+      "path": "RUN_SAMPLE_SMOKE_0001/raw/login_attempt.csv",
+      "rows": 10802
+    }
+  },
+  "code": {
+    "github_sha": null
+  },
+  "config_hash": "5d6e99bb3f83ea1d3907bcceed9774fa5f77170a10b2f5d5a7cfec8ea2c8dabb",
+  "dataset": {
+    "canonical_sort_keys": [
+      "event_ts",
+      "user_id",
+      "event_id"
+    ],
+    "checkout_attempt": {
+      "boundary_ts_ba": "2025-12-06T22:35:57.800000-03:00",
+      "holdout_users": 23
+    },
+    "login_attempt": {
+      "boundary_ts_ba": "2025-12-06T22:45:28.350000-03:00",
+      "holdout_users": 27
+    },
+    "time_split": 0.85,
+    "user_holdout": 0.15
+  },
+  "generator_meta": {
+    "campaigns": [
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C01",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "THE_MULE",
+          "THE_CHAMELEON"
+        ],
+        "start_hour_index": 16,
+        "volume_multiplier": 2.0
+      },
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C02",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "REPLICATORS",
+          "THE_CHAMELEON"
+        ],
+        "start_hour_index": 144,
+        "volume_multiplier": 2.0
+      }
+    ]
+  },
+  "run_id": "RUN_SAMPLE_SMOKE_0001",
+  "schema_version": "v1",
+  "seed": 1337,
+  "timezone": "America/Argentina/Buenos_Aires"
+}
