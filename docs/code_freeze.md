@@ -27,3 +27,7 @@ Run validation later using:
 2) Choose Start-coding vs No-code mode when asked.
 3) Run deferred validation and record results.
 4) Continue with the next deliverable (D-0005).
+
+
+## Latest freeze
+- **CF-0002**: See `CODE_FREEZE__CF-0002.md` and restart prompt `inkswarm-detectlab__MASTERPROMPT_CF-0002__Code-Freeze-Restart.md`.

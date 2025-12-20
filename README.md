@@ -22,3 +22,7 @@ uv run python -m inkswarm_detectlab.cli --help && uv run pytest -q
 detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
 detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
 ```
+
+
+## Code Freeze
+- Latest: `CODE_FREEZE__CF-0002.md` (restart with `inkswarm-detectlab__MASTERPROMPT_CF-0002__Code-Freeze-Restart.md`).
