@@ -31,7 +31,7 @@ python -m inkswarm_detectlab doctor
 ## Run the smallest smoke path
 ```bash
 detectlab run skynet -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
-detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
+detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --event all --force
 detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
 ```
 

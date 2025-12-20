@@ -17,7 +17,7 @@ from ..io.manifest import read_manifest, write_manifest
 from ..utils.canonical import canonicalize_df
 from ..utils.hashing import stable_hash_dict
 from ..features.runner import build_login_features_for_run
-from .metrics import choose_threshold_for_fpr
+from .metrics import choose_threshold_for_fpr, top_thresholds_for_fpr
 
 # sklearn is an MVP dependency (D-0004)
 from sklearn.impute import SimpleImputer
@@ -182,7 +182,7 @@ def run_login_baselines_for_run(
     run_id: str,
     force: bool = False,
     cfg_path: Path | None = None,
-) -> Path:
+) -> tuple[Path, dict[str, Any]]:
     """Train baseline models on login_attempt features and write uncommitted artifacts."""
     rdir = run_dir_for(cfg.paths.runs_dir, run_id)
     mpath = manifest_path(rdir)
@@ -218,9 +218,20 @@ def run_login_baselines_for_run(
         raise FileExistsError("Baselines output already exists. Re-run with --force to overwrite.")
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    logs_dir = rdir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = logs_dir / "baselines.log"
+
+    def _log(msg: str) -> None:
+        with log_path.open("a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+
+    _log(f"[baselines] start run_id={run_id} out_dir={out_dir}")
+
     results: dict[str, Any] = {
         "run_id": run_id,
         "target_fpr": bcfg.target_fpr,
+        "status": "running",
         "labels": {},
         "models": {},
         "meta": {
@@ -272,16 +283,23 @@ def run_login_baselines_for_run(
 
     # Train per-label per-model
     had_failures = False
+    n_ok = 0
+    n_failed = 0
     for label, y_tr in ys_train.items():
         results["labels"][label] = {}
+        _log(f"[baselines] label={label} train_rows={len(y_tr)}")
         for model_name in bcfg.models:
             model: Pipeline | None = None
             model_meta: dict[str, Any] = {}
             try:
                 if model_name == "logreg":
+                    _log(f"[baselines] fit start label={label} model=logreg")
                     model = _fit_logreg(cfg, X_train, y_tr)
+                    _log(f"[baselines] fit ok label={label} model=logreg")
                 elif model_name == "rf":
+                    _log(f"[baselines] fit start label={label} model=rf")
                     model = _fit_rf(cfg, X_train, y_tr)
+                    _log(f"[baselines] fit ok label={label} model=rf")
                 elif model_name == "hgb":
                     if cfg_path is None:
                         raise ValueError("HGB requested but cfg_path was not provided (needed for subprocess worker).")
@@ -297,6 +315,8 @@ def run_login_baselines_for_run(
                     raise ValueError(f"Unknown model: {model_name}")
             except Exception as e:
                 had_failures = True
+                n_failed += 1
+                _log(f"[baselines] fit FAILED label={label} model={model_name} err={e}")
                 results["labels"][label][model_name] = {
                     "status": "failed",
                     "error": str(e),
@@ -327,6 +347,10 @@ def run_login_baselines_for_run(
 
             # D-0004 contract: choose threshold on TRAIN only, then apply to other splits.
             thr_train = choose_threshold_for_fpr(y_tr, s_train, bcfg.target_fpr)
+            thr_table = [
+                {"threshold": t.threshold, "fpr": t.fpr, "recall": t.recall, "precision": t.precision}
+                for t in top_thresholds_for_fpr(y_tr, s_train, bcfg.target_fpr, k=3)
+            ]
             time_at_train_thr = _metrics_at_threshold(y_time, s_time, thr_train.threshold)
             hold_at_train_thr = _metrics_at_threshold(y_hold, s_hold, thr_train.threshold)
 
@@ -343,6 +367,7 @@ def run_login_baselines_for_run(
                 "train": {
                     "pr_auc": ap_train,
                     "threshold_for_fpr": thr_train.threshold,
+                    "threshold_table_top3": thr_table,
                     "fpr": thr_train.fpr,
                     "recall": thr_train.recall,
                     "precision": thr_train.precision,
@@ -367,6 +392,17 @@ def run_login_baselines_for_run(
                 entry["top_features"] = _top_features(model, list(X_train.columns))
 
             results["labels"][label][model_name] = entry
+            n_ok += 1
+
+    # Overall status
+    if n_ok == 0:
+        results["status"] = "failed"
+    elif had_failures:
+        results["status"] = "partial"
+    else:
+        results["status"] = "ok"
+    results["meta"]["n_ok"] = int(n_ok)
+    results["meta"]["n_failed"] = int(n_failed)
 
     # Write artifacts
     metrics_path = out_dir / "metrics.json"
@@ -374,21 +410,86 @@ def run_login_baselines_for_run(
     report_path = out_dir / "report.md"
     report_path.write_text(_render_report(results), encoding="utf-8")
 
+    # Also copy a user-friendly report under runs/<run_id>/reports/
+    try:
+        from ..io.paths import reports_dir as _reports_dir, summary_path as _summary_path
+
+        rep_dir = _reports_dir(rdir)
+        rep_dir.mkdir(parents=True, exist_ok=True)
+        user_report = rep_dir / "baselines_login_attempt.md"
+        user_report.write_text(report_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+        # Upsert a baselines section into the run summary for stakeholders.
+        marker_a = "<!-- BASELINES_LOGIN_ATTEMPT_START -->"
+        marker_b = "<!-- BASELINES_LOGIN_ATTEMPT_END -->"
+        section_lines = [
+            marker_a,
+            "",
+            "## Baselines (login_attempt)",
+            "",
+            "This section summarizes baseline performance for the current run.",
+            f"- detailed baseline report: `{user_report}`",
+            f"- baselines log: `{log_path}`",
+            "",
+        ]
+        # Reuse the summary table from the baseline report (rendered by _render_report)
+        rep_txt = report_path.read_text(encoding="utf-8").splitlines()
+        try:
+            i = rep_txt.index("## Summary table")
+            # take next 2 header lines + rows until blank
+            j = i + 1
+            while j < len(rep_txt) and rep_txt[j].strip() == "":
+                j += 1
+            # from j onward include until first empty line after table
+            table_lines: list[str] = []
+            while j < len(rep_txt):
+                line = rep_txt[j]
+                if line.strip() == "":
+                    break
+                table_lines.append(line)
+                j += 1
+            section_lines.extend(table_lines)
+            section_lines.append("")
+        except ValueError:
+            section_lines.append("(Baseline summary table unavailable.)")
+            section_lines.append("")
+
+        if results.get("status") == "partial":
+            section_lines.append("> **WARNING:** One or more baseline fits failed. See the log and metrics for details.")
+            section_lines.append("")
+        section_lines.append(marker_b)
+        section = "\n".join(section_lines) + "\n"
+
+        sp = _summary_path(rdir)
+        if sp.exists():
+            base = sp.read_text(encoding="utf-8")
+        else:
+            base = "# Inkswarm DetectLab — Run Summary\n\n"
+        if marker_a in base and marker_b in base:
+            pre = base.split(marker_a)[0]
+            post = base.split(marker_b)[1]
+            merged = pre.rstrip() + "\n\n" + section + "\n" + post.lstrip()
+        else:
+            merged = base.rstrip() + "\n\n" + section
+        sp.write_text(merged, encoding="utf-8")
+    except Exception as e:
+        _log(f"[baselines] failed to write user-facing reports section: {e}")
+
     # Update run manifest with pointers (uncommitted by default, but recorded)
     artifacts = manifest.get("artifacts", {}) or {}
     artifacts["models/login_attempt/baselines/metrics"] = {"path": str(metrics_path.relative_to(cfg.paths.runs_dir)), "format": "json", "note": "UNCOMMITTED", "rows": None, "content_hash": stable_hash_dict(results)}
     artifacts["models/login_attempt/baselines/report"] = {"path": str(report_path.relative_to(cfg.paths.runs_dir)), "format": "md", "note": "UNCOMMITTED", "rows": None, "content_hash": stable_hash_dict({"report": report_path.read_text(encoding="utf-8")})}
+    artifacts["logs/baselines"] = {"path": str(log_path.relative_to(cfg.paths.runs_dir)), "format": "text", "note": "UNCOMMITTED", "rows": None, "content_hash": stable_hash_dict({"log": log_path.read_text(encoding="utf-8") if log_path.exists() else ""})}
     manifest["artifacts"] = artifacts
     write_manifest(mpath, manifest)
 
-    # Fail-closed: if any requested model failed, exit non-zero.
-    if had_failures:
-        raise RuntimeError(
-            "One or more baseline models failed. See metrics.json/report.md for details. "
-            "If this is HGB, it may be a platform-specific native crash; keep it experimental until resolved."
-        )
+    # Fail-soft behavior (MVP-friendly):
+    # - If at least one model succeeded, we return normally but the caller may surface warnings.
+    # - If everything failed, callers should treat this as an error.
+    if n_ok == 0:
+        raise RuntimeError("All baseline fits failed. See runs/<run_id>/logs/baselines.log for details.")
 
-    return rdir
+    return rdir, results
 
 
 def _render_report(results: dict[str, Any]) -> str:
@@ -458,6 +559,22 @@ def _render_report(results: dict[str, Any]) -> str:
                 f"PR-AUC={tr.get('pr_auc', 0.0):.4f}, "
                 f"thr={thr:.6g}, FPR={tr.get('fpr', 0.0):.4f}, recall={tr.get('recall', 0.0):.4f}"
             )
+            # Compact threshold table (top candidates under target FPR)
+            ttab = (tr.get("threshold_table_top3") or [])
+            if ttab:
+                lines.append("  - threshold candidates (train, FPR<=target):")
+                lines.append("    | rank | thr | fpr | recall | precision |")
+                lines.append("    |---:|---:|---:|---:|---:|")
+                for i, row in enumerate(ttab[:3], start=1):
+                    lines.append(
+                        "    | {i} | {thr:.6g} | {fpr:.4f} | {rec:.4f} | {prec:.4f} |".format(
+                            i=i,
+                            thr=float(row.get("threshold", float("nan"))),
+                            fpr=float(row.get("fpr", 0.0)),
+                            rec=float(row.get("recall", 0.0)),
+                            prec=float(row.get("precision", 0.0)),
+                        )
+                    )
             lines.append(
                 "  - time_eval (apply train threshold): "
                 f"PR-AUC={t.get('pr_auc', 0.0):.4f}, ROC-AUC={t.get('roc_auc', 0.0):.4f}, "

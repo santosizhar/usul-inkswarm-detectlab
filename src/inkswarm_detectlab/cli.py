@@ -9,7 +9,7 @@ import yaml
 from .schemas import list_schemas, get_schema
 from .config import load_config
 from .pipeline import generate_raw, build_dataset, run_all
-from .features import build_login_features_for_run
+from .features import build_login_features_for_run, build_checkout_features_for_run
 from .models import run_login_baselines_for_run
 from .ui.summarize import write_ui_summary
 from .ui.bundle import export_ui_bundle
@@ -215,13 +215,29 @@ def features_build(
     *,
     config_opt: Optional[Path] = typer.Option(None, "--config", "-c", help="Path to YAML config."),
     run_id: str = typer.Option(..., "--run-id", help="Existing run_id to build features for."),
+    event: str = typer.Option(
+        "login",
+        "--event",
+        help="Which event type to build features for: login | checkout | all (default: login).",
+    ),
     force: bool = typer.Option(False, "--force", help="Overwrite existing feature artifacts."),
 ):
-    """Build login_attempt feature table for an existing run_id."""
+    """Build feature tables for an existing run_id."""
     _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
-    rdir = build_login_features_for_run(cfg, run_id=run_id, force=force)
+
+    event = event.strip().lower()
+    if event not in {"login", "checkout", "all"}:
+        raise typer.BadParameter("event must be one of: login, checkout, all")
+
+    rdir = None
+    if event in {"login", "all"}:
+        rdir = build_login_features_for_run(cfg, run_id=run_id, force=force)
+    if event in {"checkout", "all"}:
+        rdir = build_checkout_features_for_run(cfg, run_id=run_id, force=force)
+
+    assert rdir is not None
     typer.echo(str(rdir))
     _print_artifacts(rdir)
 
@@ -238,7 +254,12 @@ def baselines_run(
     _require_pyarrow()
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
-    rdir = run_login_baselines_for_run(cfg, run_id=run_id, force=force, cfg_path=cfg_path)
+    rdir, results = run_login_baselines_for_run(cfg, run_id=run_id, force=force, cfg_path=cfg_path)
+    if results.get("status") == "partial":
+        typer.echo(
+            "WARNING: One or more baseline fits failed. Outputs were written; see runs/<run_id>/logs/baselines.log and metrics.json.",
+            err=True,
+        )
     typer.echo(str(rdir))
     _print_artifacts(rdir)
 @run_app.command("skynet")

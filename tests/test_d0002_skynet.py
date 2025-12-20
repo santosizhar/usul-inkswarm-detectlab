@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
+
+pytest.importorskip('pyarrow')
 
 from inkswarm_detectlab.config import load_config
 from inkswarm_detectlab.pipeline import run_all

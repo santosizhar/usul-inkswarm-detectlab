@@ -54,19 +54,25 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
     # Baselines (login_attempt)
     metrics_path = rdir / "models" / "login_attempt" / "baselines" / "metrics.json"
     report_path = rdir / "models" / "login_attempt" / "baselines" / "report.md"
+    user_report_path = rdir / "reports" / "baselines_login_attempt.md"
+    log_path = rdir / "logs" / "baselines.log"
     if metrics_path.exists():
         try:
             metrics = _read_json(metrics_path)
             out["baselines"]["login_attempt"] = {
                 "target_fpr": metrics.get("target_fpr"),
+                "status": metrics.get("status"),
                 "labels": metrics.get("labels", {}),
                 "meta": metrics.get("meta", {}),
                 "paths": {
                     "metrics_json": str(metrics_path),
-                    "report_md": str(report_path) if report_path.exists() else None,
+                    "report_md": str(user_report_path) if user_report_path.exists() else (str(report_path) if report_path.exists() else None),
+                    "baselines_log": str(log_path) if log_path.exists() else None,
                 },
             }
-            out["artifacts"]["baseline_report_md"] = str(report_path) if report_path.exists() else None
+            out["artifacts"]["baseline_report_md"] = str(user_report_path) if user_report_path.exists() else (str(report_path) if report_path.exists() else None)
+            if metrics.get("status") == "partial":
+                out["notes"].append("Baselines status is PARTIAL: one or more fits failed. See baselines log.")
         except Exception as e:
             out["notes"].append(f"Failed to read baselines metrics: {e}")
     else:

@@ -64,7 +64,7 @@ detectlab run skynet -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --forc
 
 ### 2) Build features (FeatureLab)
 ```bash
-detectlab features build -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --force
+detectlab features build -c configs/skynet_mvp.yaml --run-id MVP_YYYYMMDD_001 --event all --force
 ```
 
 ### 3) Train and evaluate baselines (BaselineLab)

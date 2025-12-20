@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 import nbformat
 from nbclient import NotebookClient
+import pytest
+
+pytest.importorskip('pyarrow')
 
 def _exec_notebook(path: Path) -> None:
     nb = nbformat.read(path, as_version=4)

@@ -104,6 +104,9 @@ class LoginFeatureConfig(BaseModel):
     # Include support aggregates (support is embedded inside login_attempt).
     include_support: bool = Field(default=True)
 
+    # D-0007: include cross-event context features (checkout history as context).
+    include_cross_event: bool = Field(default=True)
+
     # Include label columns in feature table (multi-label heads).
     include_labels: bool = Field(default=True)
 
@@ -111,8 +114,33 @@ class LoginFeatureConfig(BaseModel):
     include_is_fraud: bool = Field(default=True)
 
 
+
+# -----------------------------
+# D-0007: FeatureLab v1 (checkout_attempt)
+# -----------------------------
+
+class CheckoutFeatureConfig(BaseModel):
+    enabled: bool = Field(default=True)
+
+    # Time windows for rolling aggregates.
+    windows: list[str] = Field(default_factory=lambda: ["1h", "6h", "24h", "7d"])
+
+    # Entities to aggregate by (safe aggregates only).
+    entities: list[Literal["user", "ip", "device"]] = Field(default_factory=lambda: ["user", "ip", "device"])
+
+    # Strict past-only leakage control.
+    strict_past_only: bool = Field(default=True)
+
+    # D-0007: include cross-event context features (login history as context).
+    include_cross_event: bool = Field(default=True)
+
+    # Checkout labels are derived for MVP:
+    # is_adverse = checkout_result in {failure, review}
+    include_is_adverse: bool = Field(default=True)
+
 class FeaturesConfig(BaseModel):
     login_attempt: LoginFeatureConfig = Field(default_factory=LoginFeatureConfig)
+    checkout_attempt: CheckoutFeatureConfig = Field(default_factory=CheckoutFeatureConfig)
 
 
 # -----------------------------

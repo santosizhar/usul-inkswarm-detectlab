@@ -13,9 +13,18 @@ A run is identified by a `run_id`. All artifacts for that run live under:
 - `runs/<run_id>/manifest.json` — inventory + content hashes for each artifact
 - `runs/<run_id>/reports/summary.md` — human-readable summary (counts, splits, labels)
 
+### BaselineLab artifacts (login-first for MVP)
+Within `runs/<run_id>/models/login_attempt/baselines/`:
+- `metrics.json` — per-label, per-model metrics including PR-AUC and Recall@1%FPR
+- `report.md` — human-readable report with a compact summary table and per-model details
+
+Stakeholder-friendly convenience outputs:
+- `runs/<run_id>/reports/baselines_login_attempt.md` — copy of the report
+- `runs/<run_id>/logs/baselines.log` — debug log (captures partial failures)
+
 ## Leakage-aware split (D-0002)
 
-For each event table (MVP focuses on `login_attempt`):
+For each event table (MVP focuses on `login_attempt`, but `checkout_attempt` is supported):
 
 - **15% user holdout**: entire user histories are held out as `user_holdout`
 - Remaining 85% users are split by time into:

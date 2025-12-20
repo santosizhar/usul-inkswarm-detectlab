@@ -28,3 +28,12 @@ Interpretation:
 For a run_id:
 - `runs/<run_id>/models/login_attempt/baselines/report.md`
 - `runs/<run_id>/models/login_attempt/baselines/metrics.json`
+
+Additional stakeholder-friendly outputs:
+- `runs/<run_id>/reports/baselines_login_attempt.md` (copy of the report)
+- `runs/<run_id>/logs/baselines.log` (fit/debug log; includes failures)
+
+## Failure behavior
+Baseline training is **fail-soft** for MVP usability:
+- If at least one baseline succeeds, artifacts are still written and a warning is emitted.
+- If all requested baselines fail, the command returns an error.
