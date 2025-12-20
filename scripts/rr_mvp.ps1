@@ -1,34 +1,96 @@
 Param(
   [string]$Config = "configs/skynet_mvp.yaml",
+  # Base run id; script will execute TWO runs: <RunId>_A and <RunId>_B
   [string]$RunId = $("RR_MVP_{0}_001" -f (Get-Date -Format "yyyyMMdd"))
 )
 
-Write-Host "RR MVP: config=$Config run_id=$RunId"
+$ErrorActionPreference = "Stop"
 
-try { python -m inkswarm_detectlab doctor } catch { }
+$runA = "${RunId}_A"
+$runB = "${RunId}_B"
 
-# Windows reproducibility defaults (caller can override)
-if (-not $env:OMP_NUM_THREADS) { $env:OMP_NUM_THREADS = "1" }
-if (-not $env:MKL_NUM_THREADS) { $env:MKL_NUM_THREADS = "1" }
-if (-not $env:OPENBLAS_NUM_THREADS) { $env:OPENBLAS_NUM_THREADS = "1" }
-if (-not $env:NUMEXPR_NUM_THREADS) { $env:NUMEXPR_NUM_THREADS = "1" }
+$evidenceDir = Join-Path -Path "rr_evidence" -ChildPath (Join-Path "RR-0001" $RunId)
+New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
 
-detectlab run skynet -c $Config --run-id $RunId
+$logPath = Join-Path $evidenceDir "rr_mvp.log"
+$errPath = Join-Path $evidenceDir "rr_error.txt"
 
-detectlab features build -c $Config --run-id $RunId --force
-
-detectlab baselines run -c $Config --run-id $RunId --force
-
-Write-Host "RR MVP: verifying key artifacts..."
-$paths = @(
-  "runs/$RunId/manifest.json",
-  "runs/$RunId/reports/summary.md",
-  "runs/$RunId/features/login_attempt/features.parquet",
-  "runs/$RunId/models/login_attempt/baselines/metrics.json",
-  "runs/$RunId/models/login_attempt/baselines/report.md"
-)
-foreach ($p in $paths) {
-  if (-not (Test-Path $p)) { throw "Missing required artifact: $p" }
+function Cleanup-RunFolder([string]$rid) {
+  $p = Join-Path "runs" $rid
+  if (Test-Path $p) {
+    try { Remove-Item -Recurse -Force $p } catch { }
+  }
 }
 
-Write-Host "RR MVP OK: $RunId"
+function Require-Artifact([string]$path) {
+  if (-not (Test-Path $path)) {
+    throw "Missing required artifact: $path"
+  }
+}
+
+function Run-One([string]$rid) {
+  Write-Host "RR MVP: config=$Config run_id=$rid"
+  & detectlab run skynet -c $Config --run-id $rid
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): detectlab run skynet" }
+
+  & detectlab features build -c $Config --run-id $rid --force
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): detectlab features build" }
+
+  & detectlab baselines run -c $Config --run-id $rid --force
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): detectlab baselines run" }
+
+  Write-Host "RR MVP: verifying key artifacts for $rid..."
+  Require-Artifact "runs/$rid/manifest.json"
+  Require-Artifact "runs/$rid/reports/summary.md"
+  Require-Artifact "runs/$rid/features/login_attempt/features.parquet"
+  Require-Artifact "runs/$rid/models/login_attempt/baselines/metrics.json"
+  Require-Artifact "runs/$rid/models/login_attempt/baselines/report.md"
+}
+
+try {
+  # Preflight (cheap)
+  Write-Host "RR MVP: preflight (doctor + parquet engine)"
+  python -m inkswarm_detectlab doctor | Tee-Object -FilePath $logPath
+
+  # Capture everything else into the same log
+  Start-Transcript -Path $logPath -Append | Out-Null
+
+  # Run A
+  Run-One $runA
+  & python -m inkswarm_detectlab.tools.rr_signature --run-id $runA --out (Join-Path $evidenceDir "signature_A.json")
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): rr_signature A" }
+
+  # Run B
+  Run-One $runB
+  & python -m inkswarm_detectlab.tools.rr_signature --run-id $runB --out (Join-Path $evidenceDir "signature_B.json")
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): rr_signature B" }
+
+  # Compare signatures (determinism sanity)
+  $sigA = Get-Content (Join-Path $evidenceDir "signature_A.json") -Raw
+  $sigB = Get-Content (Join-Path $evidenceDir "signature_B.json") -Raw
+  if ($sigA -ne $sigB) {
+    throw "Determinism check failed: signature_A.json != signature_B.json"
+  }
+
+  # Evidence summary into journals
+  $evidenceMd = "journals/inkswarm-detectlab__RR_EVIDENCE__RR-0001__${RunId}.md"
+  & python -m inkswarm_detectlab.tools.rr_evidence_md --base-run-id $RunId --run-a $runA --run-b $runB --sig-a (Join-Path $evidenceDir "signature_A.json") --sig-b (Join-Path $evidenceDir "signature_B.json") --out $evidenceMd
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): rr_evidence_md" }
+
+  Write-Host "RR MVP OK: $RunId (two-run determinism OK)"
+}
+catch {
+  $msg = $_.Exception.Message
+  Write-Host "RR MVP FAILED: $msg"
+  "RR MVP FAILED ($RunId): $msg`nLog: $logPath" | Set-Content -Path $errPath
+
+  # Cleanup (keep evidence only)
+  Cleanup-RunFolder $runA
+  Cleanup-RunFolder $runB
+
+  try { Stop-Transcript | Out-Null } catch { }
+  exit 2
+}
+finally {
+  try { Stop-Transcript | Out-Null } catch { }
+}

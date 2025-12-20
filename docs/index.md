@@ -7,3 +7,9 @@ DetectLab is a reproducible lab to generate event-level telemetry, build leakage
 - `checkout_attempt` (SPACING GUILD planned).
 
 **Lore rule:** lore prose lives only in `docs/lore/world_bible.md`. Technical docs may reference lore by anchor links (e.g., WB::REPLICATORS).
+
+## Start here
+- `docs/getting_started.md`
+- `docs/mvp_usage.md`
+- `docs/pipeline_overview.md`
+- `docs/release_readiness_mvp.md`
