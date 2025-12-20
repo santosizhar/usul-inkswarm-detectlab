@@ -8,4 +8,5 @@ nav:
   - FeatureLab: features.md
   - BaselineLab: baselines.md
   - Schemas: schemas.md
+  - Code Freeze: code_freeze.md
   - Lore: lore/world_bible.md
