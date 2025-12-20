@@ -1,0 +1,181 @@
+{
+  "actual_run_id": "<NORMALIZED>",
+  "baselines": {
+    "label_replicators": {
+      "_digest": "c19ed3376b236180ed317928dd480439a49674ee95b1f4f6dfeb6da78b080e36",
+      "logreg": {
+        "status": "ok",
+        "time_eval": {
+          "fpr": 0.047619047619047616,
+          "pr_auc": 0.058823529411764705,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.23809523809523814,
+          "threshold_used": 0.9720541968413928
+        },
+        "train": {
+          "fpr": 0.006622516556291391,
+          "pr_auc": 0.7124999999999999,
+          "precision": 0.6666666666666666,
+          "recall": 0.4
+        },
+        "user_holdout": {
+          "fpr": 0.043478260869565216,
+          "pr_auc": 0.125,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.717391304347826,
+          "threshold_used": 0.9720541968413928
+        }
+      },
+      "rf": {
+        "status": "ok",
+        "time_eval": {
+          "fpr": 0.047619047619047616,
+          "pr_auc": 0.045454545454545456,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.16666666666666669,
+          "threshold_used": 0.2114155844155844
+        },
+        "train": {
+          "fpr": 0.006622516556291391,
+          "pr_auc": 0.8769230769230769,
+          "precision": 0.8,
+          "recall": 0.8
+        },
+        "user_holdout": {
+          "fpr": 0.0,
+          "pr_auc": 0.08333333333333333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.5434782608695652,
+          "threshold_used": 0.2114155844155844
+        }
+      }
+    },
+    "label_the_chameleon": {
+      "_digest": "0ed7418a32f468ef859f63f1a205f0e36f07e0bec6b2f59df88aca552bb1cb06",
+      "logreg": {
+        "status": "ok",
+        "time_eval": {
+          "fpr": 0.0,
+          "pr_auc": 0.05263157894736842,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.16666666666666669,
+          "threshold_used": 0.17462959649666546
+        },
+        "train": {
+          "fpr": 0.0064516129032258064,
+          "pr_auc": 1.0,
+          "precision": 0.5,
+          "recall": 1.0
+        },
+        "user_holdout": {
+          "fpr": 0.08333333333333333,
+          "pr_auc": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.0,
+          "threshold_used": 0.17462959649666546
+        }
+      },
+      "rf": {
+        "status": "ok",
+        "time_eval": {
+          "fpr": 0.09523809523809523,
+          "pr_auc": 0.045454545454545456,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.35714285714285715,
+          "threshold_used": 0.08333333333333333
+        },
+        "train": {
+          "fpr": 0.0064516129032258064,
+          "pr_auc": 1.0,
+          "precision": 0.5,
+          "recall": 1.0
+        },
+        "user_holdout": {
+          "fpr": 0.0,
+          "pr_auc": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.0,
+          "threshold_used": 0.08333333333333333
+        }
+      }
+    },
+    "label_the_mule": {
+      "_digest": "41887e19d15ecb78ddf8d8cafdd657f90892919b2ac82a9c71d78c5e6a6d828c",
+      "logreg": {
+        "status": "ok",
+        "time_eval": {
+          "fpr": 0.0,
+          "pr_auc": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.0,
+          "threshold_used": 0.9972894449481727
+        },
+        "train": {
+          "fpr": 0.006493506493506494,
+          "pr_auc": 0.26785714285714285,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        "user_holdout": {
+          "fpr": 0.0,
+          "pr_auc": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.0,
+          "threshold_used": 0.9972894449481727
+        }
+      },
+      "rf": {
+        "status": "ok",
+        "time_eval": {
+          "fpr": 0.0,
+          "pr_auc": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.0,
+          "threshold_used": 0.6133333333333333
+        },
+        "train": {
+          "fpr": 0.0,
+          "pr_auc": 0.75,
+          "precision": 1.0,
+          "recall": 0.5
+        },
+        "user_holdout": {
+          "fpr": 0.0,
+          "pr_auc": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "roc_auc": 0.0,
+          "threshold_used": 0.6133333333333333
+        }
+      }
+    }
+  },
+  "baselines_digest": "ea755c94ee1d4056694b833656a5bb5422bec7ae4ad88b711cfaa23496231021",
+  "code": {
+    "github_sha": null
+  },
+  "config_hash": "d86322c149e1bbf789e8b67583982ebae1ce20a335f91fde53c362ded81483f2",
+  "features_digest": "6c7d99a049052e596b670edbd64e7ad7b75accd2b7dd2b8324f085625c3c78fb",
+  "hashes": {
+    "features_login_attempt": "f7b41c149a3f4be711c117819f1bc0368786c91692952514782c51f11b132093",
+    "raw_checkout_attempt": "f6180812c8cf08eed757ae8c3590234cfcbf1b7d9fff60950677eb82a168f011",
+    "raw_login_attempt": "de99641df649f422976d9d6f81b6e1e21ad1c44502c5f613464ebe3d6ceb3c0a"
+  },
+  "hashes_digest": "a9643fb9edec9a066259f459a1e6f35361048184f43ab03a7099ecf5d49fa469",
+  "run_id": "<NORMALIZED>",
+  "schema_version": "v1",
+  "seed": 1337,
+  "signature_digest": "4b4e012c175b6bb5c5c630134ce7495da7e35b96b38a8c86e152fb1bcccdba6c",
+  "timezone": "America/Argentina/Buenos_Aires"
+}

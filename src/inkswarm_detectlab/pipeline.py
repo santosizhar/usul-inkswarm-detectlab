@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+# Executive summary markers (used by reports.exec_summary to inject stakeholder blurb)
+EXEC_SUMMARY_START = "<!-- EXEC_SUMMARY:START -->"
+EXEC_SUMMARY_END = "<!-- EXEC_SUMMARY:END -->"
+
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -269,3 +274,11 @@ def build_dataset(cfg: AppConfig, run_id: str) -> tuple[Path, dict[str, Any]]:
 def run_all(cfg: AppConfig, run_id: str | None = None) -> tuple[Path, dict[str, Any]]:
     rdir, _ = generate_raw(cfg, run_id=run_id)
     return build_dataset(cfg, run_id=rdir.name)
+
+
+def _ensure_exec_markers(summary_text: str) -> str:
+    """Ensure summary.md contains EXEC_SUMMARY markers at the top (stable injection point)."""
+    if EXEC_SUMMARY_START in summary_text and EXEC_SUMMARY_END in summary_text:
+        return summary_text
+    header = "\n".join([EXEC_SUMMARY_START, EXEC_SUMMARY_END, ""])
+    return header + summary_text

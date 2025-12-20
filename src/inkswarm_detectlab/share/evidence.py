@@ -43,7 +43,9 @@ def export_evidence_bundle(*, run_dir: Path) -> Path:
     """Create a tidy, shareable evidence layout under runs/<run_id>/share/.
 
     This is intended for non-technical recipients:
-      - open share/ui_bundle/index.html
+      - open share/ui_bundle/index.html (UI)
+- reports/EXEC_SUMMARY.html (stakeholder-friendly)
+- reports/summary.html (full summary rendered)
       - read share/reports/mvp_handover.md
       - optionally inspect share/meta/manifest.json + ui_summary.json
       - logs live under share/logs/
@@ -91,7 +93,9 @@ def export_evidence_bundle(*, run_dir: Path) -> Path:
 This folder is meant to be sent as-is.
 
 ## Open this first
-- `ui_bundle/index.html` (interactive, stakeholder-friendly)
+- `ui_bundle/index.html (UI)
+- reports/EXEC_SUMMARY.html (stakeholder-friendly)
+- reports/summary.html (full summary rendered)` (interactive, stakeholder-friendly)
 
 ## Then read
 - `reports/mvp_handover.md` (plain-language interpretation)
@@ -107,7 +111,9 @@ If anything is missing, it usually means that step failed upstream — see `logs
     copied_files.append(readme)
 
     # Evidence manifest (hashes so two exports are comparable)
-    # We hash files inside share/ excluding the UI bundle assets (large) except index.html + app.js.
+    # We hash files inside share/ excluding the UI bundle assets (large) except index.html (UI)
+- reports/EXEC_SUMMARY.html (stakeholder-friendly)
+- reports/summary.html (full summary rendered) + app.js.
     manifest: Dict[str, Any] = {
         "schema_version": 1,
         "root": str(share_root),
@@ -120,7 +126,9 @@ If anything is missing, it usually means that step failed upstream — see `logs
         except Exception:
             return False
         if rel.startswith("ui_bundle/"):
-            return rel in {"ui_bundle/index.html", "ui_bundle/app.js", "ui_bundle/style.css"}
+            return rel in {"ui_bundle/index.html (UI)
+- reports/EXEC_SUMMARY.html (stakeholder-friendly)
+- reports/summary.html (full summary rendered)", "ui_bundle/app.js", "ui_bundle/style.css"}
         return True
 
     for p in sorted([x for x in share_root.rglob("*") if x.is_file()]):

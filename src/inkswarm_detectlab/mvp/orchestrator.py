@@ -14,6 +14,7 @@ from ..share.evidence import export_evidence_bundle
 from ..io.paths import run_dir as run_dir_for
 
 from .handover import write_mvp_handover
+from inkswarm_detectlab.reports.exec_summary import write_exec_summary
 
 
 def run_mvp(
@@ -111,4 +112,12 @@ def run_mvp(
 # Overall status
     fails = [s for s in summary["steps"] if s.get("status") == "fail"]
     summary["status"] = "ok" if not fails else "partial"
+
+    # D-0016: generate stakeholder-friendly executive summary (MD + HTML) and HTML render of summary.md
+    try:
+        write_exec_summary(run_dir=run_dir, rr_provisional=True, d0004_deferred=True)
+    except Exception as e:
+        # Fail-soft for reporting extras; core pipeline should remain usable
+        logger.warning(f"Exec summary generation failed: {e}")
+
     return rdir, summary

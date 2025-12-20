@@ -1,0 +1,10 @@
+DetectLab doctor
+- python: 3.11.2 (main, Apr 28 2025, 14:11:48) [GCC 12.2.0]
+- platform: Linux-4.4.0-x86_64-with-glibc2.36
+- sklearn: 1.8.0
+- pandas: 2.2.3
+- pyarrow: 16.1.0
+- threadpools: 3
+  - 1: openblas (56)
+  - 2: openblas (56)
+  - 3: openmp (56)
