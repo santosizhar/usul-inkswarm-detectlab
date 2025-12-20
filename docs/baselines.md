@@ -1,42 +1,30 @@
-# BaselineLab (D-0004)
+# Baselines & Metrics (MVP)
 
-BaselineLab trains and evaluates quick baseline detectors for `login_attempt`.
+The MVP baseline set is intentionally small and stable:
 
-## Outputs (uncommitted by default)
-- `runs/<run_id>/models/login_attempt/baselines/metrics.json`
+- **logreg** (Logistic Regression): fast, interpretable, reliable anchor
+- **rf** (Random Forest): non-linear baseline that usually improves over logreg
+
+> Note: `hgb` (HistGradientBoosting) is excluded for MVP until a platform-specific native crash is resolved.
+
+## Primary headline metric
+- **PR-AUC** (area under the Precision–Recall curve)
+
+This is useful when positives are rare.
+
+## Secondary operating-point metric
+- **Recall @ 1% FPR**
+
+Interpretation:
+- Fix a false positive rate of ~1% (how often we wrongly flag)
+- Measure recall (how many true positives we catch)
+
+## What “good” looks like
+- Similar or improving metrics from `train` → `time_eval`
+- Stable metrics on `user_holdout` (generalizes to new users)
+- Clear model comparisons in `report.md`
+
+## Where to read results
+For a run_id:
 - `runs/<run_id>/models/login_attempt/baselines/report.md`
-- `runs/<run_id>/models/login_attempt/baselines/*.joblib`
-
-These are referenced in `runs/<run_id>/manifest.json` with `note: UNCOMMITTED`.
-
-## Targets
-- Multi-label heads:
-  - `label_replicators`
-  - `label_the_mule`
-  - `label_the_chameleon`
-
-## Models (MVP defaults)
-- Logistic Regression (with standardization)
-- RandomForestClassifier (robust tree baseline)
-
-## HGB status
-`HistGradientBoostingClassifier` is **excluded for MVP** as of **CR-0002**.
-
-Reason: on some platforms (notably Windows wheels / certain BLAS/OpenMP backends), HGB
-may hard-abort the Python interpreter during `.fit()` (native crash). We will reintroduce
-it only after the crash is reproduced + resolved.
-
-## Thresholding (FPR target)
-We select a threshold per label/model to achieve:
-- **FPR ≤ target_fpr** (default: 0.01)
-
-We pick the closest FPR under the target (max FPR that still satisfies the constraint).
-
-## CLI
-```bash
-detectlab doctor
-
-detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
-# overwrite:
-detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
-```
+- `runs/<run_id>/models/login_attempt/baselines/metrics.json`

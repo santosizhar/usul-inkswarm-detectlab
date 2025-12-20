@@ -12,36 +12,23 @@ It includes deliverables through **D-0004** and the documentation/journals neede
 - **D-0002**: SKYNET synthetic generator + dataset build (train/time_eval/user_holdout), manifests, summaries
 - **CR-0001**: determinism tightening, canonicalization, improved CLI help + config show/validate, CI smoke run
 - **D-0003**: FeatureLab v0 for `login_attempt` only
-  - safe aggregate features for `user_id`, `ip_hash`, `device_fingerprint_hash`
-  - windows: 1h / 6h / 24h / 7d
-  - labels included, `metadata_json` excluded
-  - CLI: `detectlab features build ... --run-id ...`
-- **D-0004**: BaselineLab v0 for `login_attempt`
-  - sklearn LogReg + HistGradientBoosting
-  - headline metric: PR-AUC
-  - operating point: Recall @ 1% FPR (threshold chosen on Train)
-  - CLI: `detectlab baselines run ... --run-id ...`
+  - safe aggregate features for keys: `user_id`, `ip_hash`, `device_fingerprint_hash`
+  - windows: `1h`, `6h`, `24h`, `7d`
+- **D-0004**: BaselineLab v0 (sklearn baselines + reporting) — **validation deferred** via CC-0001
 
-## What is DEFERRED / NOT VERIFIED here
-- D-0004 was **closed with deferred validation** (tests and end-to-end run were not verified in-chat).
-- Validation must be run locally later using instructions in:
-  - `DEFERRED_VALIDATION__D-0004.md`
-  - `scripts/validate_d0004.ps1` (Windows)
-  - `scripts/validate_d0004.sh` (macOS/Linux)
+## What is NOT done
+- Deferred Validation for D-0004 (must be run later on a local machine)
+- Parquet-only enforcement (arrives later in D-0005)
 
-## Known defaults / conventions (locked)
-- Timezone standard: **America/Argentina/Buenos_Aires**
-- ID standard: unified `user_id`
-- Raw formats: parquet preferred; CSV fallback exists until the Parquet-mandatory flip
-- Features: strict past-only, safe aggregates only in v0
-- Modelling: OVR multi-head (replicators/mule/chameleon); benign is implied
+## FeatureLab + BaselineLab (manual run)
+```bash
+# after you have a run_id
+detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
+detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
+```
 
-## Next recommended steps after unfreezing
-1) **Run deferred validation** and record results (new J + JM).
-2) **D-0005**: make Parquet mandatory and tighten pipeline guarantees.
-3) **CR-0002**: review baselines robustness, reporting clarity, and packaging.
-4) **RR**: release readiness for MVP (reproducible demo run + docs).
-5) **CF**: after MVP release (if you choose to refreeze later).
-
-## Restart prompt
-Use: `inkswarm-detectlab__MASTERPROMPT_CF-0001__Code-Freeze-Restart.md`
+## Explicit Parquet conversion (legacy runs)
+```bash
+# convert legacy CSV artifacts to Parquet for a run (only needed for older runs)
+detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
+```

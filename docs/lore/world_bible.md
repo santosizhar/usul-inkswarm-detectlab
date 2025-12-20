@@ -1,12 +1,16 @@
-# World Bible
+# World Bible (Lore)
 
-Lore prose lives only here.
+Lore exists to make DetectLab memorable and cohesive. It is **optional** and kept separate from technical docs.
 
-## WB::REPLICATORS
-Credential-stuffing swarms that test the seams of identity and friction.
+## Where to start
+- **Lore Bible v1:** `docs/lore/lore_bible_v1.md`
+- **Glossary (lore ↔ technical mapping):** `docs/lore/glossary.md`
+- **Season 1 beats (aligned with MVP and post-MVP):** `docs/lore/season_1.md`
 
-## WB::THE_MULE
-Low-and-slow progression campaigns that look like “normal life” until they don’t.
+## WB Anchors (stable references)
+These anchors are used across lore documents.
 
-## WB::THE_CHAMELEON
-Adaptive automation that shape-shifts fingerprints and patterns in response to controls.
+- **WB::REPLICATORS** — credential-stuffing swarms that test the seams of identity and friction
+- **WB::THE_MULE** — low-and-slow progression campaigns that look like “normal life” until they don’t
+- **WB::THE_CHAMELEON** — adaptive automation that shape-shifts fingerprints and patterns in response to controls
+- **WB::THE ORACLE** — the lab itself: a quiet instrument that sees patterns before they become stories

@@ -31,7 +31,7 @@ Before doing anything else, you MUST read these files in the repo:
 - `docs/getting_started.md`
 - `docs/pipeline_overview.md`
 - `docs/release_readiness_mvp.md`
-- `docs/mvp_usage.md`
+- `docs/mvp_user_guide.md`
 - Latest journals under `journals/` (highest J/JM numbers)
 
 After reading, the assistant must output a short “Context restored” snapshot: DONE / NOT DONE / NEXT.

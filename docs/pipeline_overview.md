@@ -1,32 +1,48 @@
 # Pipeline Overview
 
-Runs live under `runs/<run_id>/...`.
+A run is identified by a `run_id`. All artifacts for that run live under:
 
-## Current run layout
-- `runs/<run_id>/raw/` — raw event tables (`login_attempt`, `checkout_attempt`)
-- `runs/<run_id>/dataset/` — leakage-aware dataset splits per event table
-- `runs/<run_id>/features/` — FeatureLab outputs (login_attempt features table + spec)
-- `runs/<run_id>/models/` — BaselineLab outputs (models + metrics + report; uncommitted by default)
-- `runs/<run_id>/manifest.json` — run metadata, artifact rows + hashes, and formats written
-- `runs/<run_id>/reports/summary.md` — human-readable run summary (labels, splits, outputs)
+- `runs/<run_id>/`
 
-## Locked leakage-aware split (implemented in D-0002)
-- **85% time-based** split (`train` + `time_eval`)
-- **15% by-user holdout** split (`user_holdout`)
-- Splits are computed per event table (shared holdout across tables can be introduced later via CC).
+## Run layout (current)
 
-## Locked timezone
+- `runs/<run_id>/raw/` — raw event tables (Parquet)
+- `runs/<run_id>/dataset/` — leakage-aware dataset splits per event table (Parquet + manifests)
+- `runs/<run_id>/features/` — FeatureLab outputs (features table + spec)
+- `runs/<run_id>/models/` — BaselineLab outputs (models + metrics + report)
+- `runs/<run_id>/manifest.json` — inventory + content hashes for each artifact
+- `runs/<run_id>/reports/summary.md` — human-readable summary (counts, splits, labels)
+
+## Leakage-aware split (D-0002)
+
+For each event table (MVP focuses on `login_attempt`):
+
+- **15% user holdout**: entire user histories are held out as `user_holdout`
+- Remaining 85% users are split by time into:
+  - `train`
+  - `time_eval`
+
+This structure answers two different “generalization” questions:
+- Can we handle **future time**? (`time_eval`)
+- Can we handle **new users**? (`user_holdout`)
+
 All timestamps are standardized to `America/Argentina/Buenos_Aires`.
 
 ## Determinism contract
-DetectLab aims for reproducibility:
-- Tables are canonicalized (stable sort + stable column order) **before write and hash**.
-- Manifest stores `content_hash` per artifact.
-- Parquet is **mandatory** as of **D-0005** (fail-closed; no CSV fallback).
 
-## Legacy Parquet conversion
-Use the explicit command to upgrade **older runs** that still contain CSV artifacts:
+DetectLab aims for reproducibility:
+
+- Tables are canonicalized (stable sort + stable column order) **before write and hash**
+- The manifest stores `content_hash` per artifact
+- Release Readiness runs the MVP pipeline **twice** and compares signatures
+
+## File formats
+
+As of **D-0005**, **Parquet is mandatory** (fail-closed). There is no CSV fallback in the normal pipeline.
+
+### Legacy conversion
+If you have old runs that still contain CSV artifacts, you can upgrade them with:
 
 ```bash
-detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
+detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
 ```

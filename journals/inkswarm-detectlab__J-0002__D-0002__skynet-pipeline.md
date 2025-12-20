@@ -82,10 +82,15 @@ All tests (including notebook execution) pass in this environment.
 
 ### 8) Sample smoke run committed
 Generated and committed:
-- `runs/RUN_SAMPLE_SMOKE_0001/...`
+- `runs/RUN_SAMPLE_SMOKE_0001/raw/` (event tables)
+- `runs/RUN_SAMPLE_SMOKE_0001/dataset/` (splits)
+- `runs/RUN_SAMPLE_SMOKE_0001/reports/summary.md`
+- `runs/RUN_SAMPLE_SMOKE_0001/manifest.json`
 
 Note: In this build environment, Parquet engines were not available, so the run is stored as CSV.
 When `pyarrow` is installed (declared in `pyproject.toml`), the pipeline prefers Parquet.
+
+Historical note: As of D-0005, Parquet became mandatory (fail-closed). Legacy conversion remains available via `detectlab dataset parquetify`.
 
 ### 9) Docs updates
 Updated:

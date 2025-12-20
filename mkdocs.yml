@@ -3,10 +3,13 @@ theme:
   name: material
 nav:
   - Home: index.md
+  - MVP User Guide: mvp_user_guide.md
   - Getting Started: getting_started.md
   - Pipeline Overview: pipeline_overview.md
   - FeatureLab: features.md
-  - BaselineLab: baselines.md
+  - Baselines: baselines.md
   - Schemas: schemas.md
+  - Release Readiness (MVP): release_readiness_mvp.md
+  - Windows Notes: windows_repro.md
   - Code Freeze: code_freeze.md
   - Lore: lore/world_bible.md

@@ -1,15 +1,26 @@
 # Inkswarm DetectLab
 
-DetectLab is a reproducible lab to generate event-level telemetry, build leakage-aware datasets, and evaluate detection models.
+Inkswarm DetectLab is a **reproducible detection lab**: it generates synthetic event telemetry, builds leakage-aware datasets, engineers safe aggregate features, and compares simple baselines.
 
-**Core targets (event tables):**
-- `login_attempt` (SKYNET) — includes embedded support fields.
-- `checkout_attempt` (SPACING GUILD planned).
+This documentation is written so a **non-technical reader** can still understand:
+- what the project does,
+- what to run,
+- and how to interpret results.
 
-**Lore rule:** lore prose lives only in `docs/lore/world_bible.md`. Technical docs may reference lore by anchor links (e.g., WB::REPLICATORS).
+## Start here (single canonical guide)
+- **MVP User Guide:** `docs/mvp_user_guide.md`
 
-## Start here
-- `docs/getting_started.md`
-- `docs/mvp_usage.md`
-- `docs/pipeline_overview.md`
-- `docs/release_readiness_mvp.md`
+## Reference (optional)
+- Getting Started (install + quick sanity checks): `docs/getting_started.md`
+- Pipeline Overview (what artifacts are produced): `docs/pipeline_overview.md`
+- Release Readiness (MVP gate): `docs/release_readiness_mvp.md`
+- Baselines & metrics: `docs/baselines.md`
+- FeatureLab: `docs/features.md`
+- Schemas: `docs/schemas.md`
+- Windows reproducibility notes: `docs/windows_repro.md`
+- Code Freeze process: `docs/code_freeze.md`
+
+## Lore
+Lore is intentionally separated from technical docs and lives under `docs/lore/`.
+Start here:
+- `docs/lore/world_bible.md`

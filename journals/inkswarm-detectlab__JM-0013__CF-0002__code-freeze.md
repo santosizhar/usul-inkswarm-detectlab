@@ -7,7 +7,7 @@
 - Freeze doc: `CODE_FREEZE__CF-0002.md`
 - Restart masterprompt: `inkswarm-detectlab__MASTERPROMPT_CF-0002__Code-Freeze-Restart.md`
 - RR scripts: `scripts/rr_mvp.ps1`, `scripts/rr_mvp.sh`
-- RR docs: `docs/release_readiness_mvp.md`, `docs/mvp_usage.md`
+- RR docs: `docs/release_readiness_mvp.md`, `docs/mvp_user_guide.md`
 - Deferred validation instructions: `DEFERRED_VALIDATION__D-0004.md`
 
 ## Validation status at freeze

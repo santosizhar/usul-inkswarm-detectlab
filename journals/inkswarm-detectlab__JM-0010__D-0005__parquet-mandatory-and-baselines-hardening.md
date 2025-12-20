@@ -21,5 +21,5 @@
   - `detectlab doctor`
   - `pytest -q`
   - `detectlab run skynet -c configs/skynet_smoke.yaml`
-  - `detectlab features build ...`
-  - `detectlab baselines run ...`
+  - `detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force`
+  - `detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force`
