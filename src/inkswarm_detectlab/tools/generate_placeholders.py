@@ -10,18 +10,12 @@ import pandas as pd
 from ..utils.run_id import PLACEHOLDER_RUN_ID
 from ..utils.time import BA_TZ
 from ..io.paths import raw_dir, raw_table_path, manifest_path
-from ..io.tables import write_parquet, write_csv
+from ..io.tables import write_parquet
 
-def _maybe_write(df: pd.DataFrame, parquet_path: Path) -> str:
-    """Try parquet; if parquet engine is unavailable, write csv. Returns fmt."""
-    parquet_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        write_parquet(df, parquet_path)
-        return "parquet"
-    except Exception:
-        csv_path = parquet_path.with_suffix(".csv")
-        write_csv(df, csv_path)
-        return "csv"
+def _write(df: pd.DataFrame, parquet_path: Path) -> str:
+    """Write Parquet (mandatory as of D-0005). Returns 'parquet'."""
+    write_parquet(df, parquet_path)
+    return "parquet"
 
 def generate(run_id: str = PLACEHOLDER_RUN_ID, n_rows: int = 64, runs_dir: Path = Path("runs")) -> dict:
     run_dir = runs_dir / run_id
@@ -62,7 +56,7 @@ def generate(run_id: str = PLACEHOLDER_RUN_ID, n_rows: int = 64, runs_dir: Path 
     any_attack = login[["label_replicators","label_the_mule","label_the_chameleon"]].any(axis=1)
     login.loc[:, "label_benign"] = ~any_attack
     login.loc[:, "is_fraud"] = any_attack
-    login_fmt = _maybe_write(login, raw_table_path(run_dir, "login_attempt", fmt="parquet"))
+    login_fmt = _write(login, raw_table_path(run_dir, "login_attempt", fmt="parquet"))
 
     checkout = pd.DataFrame({
         "run_id": [run_id]*n_rows,
@@ -83,7 +77,7 @@ def generate(run_id: str = PLACEHOLDER_RUN_ID, n_rows: int = 64, runs_dir: Path 
         "checkout_result": [random.choice(["success","failure","review"]) for _ in range(n_rows)],
         "decline_reason": [random.choice([None,"insufficient_funds","suspected_fraud","network_error","other"]) for _ in range(n_rows)],
     })
-    checkout_fmt = _maybe_write(checkout, raw_table_path(run_dir, "checkout_attempt", fmt="parquet"))
+    checkout_fmt = _write(checkout, raw_table_path(run_dir, "checkout_attempt", fmt="parquet"))
 
     manifest = {
         "run_id": run_id,

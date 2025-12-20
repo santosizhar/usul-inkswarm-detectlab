@@ -12,6 +12,7 @@ from .pipeline import generate_raw, build_dataset, run_all
 from .features import build_login_features_for_run
 from .models import run_login_baselines_for_run
 from .utils.parquetify import parquetify_run
+from .reports import generate_final_report_for_run
 from .io.manifest import read_manifest
 from .io.paths import manifest_path
 
@@ -34,6 +35,7 @@ dataset_app = typer.Typer(add_completion=False, help="Dataset building")
 run_app = typer.Typer(add_completion=False, help="End-to-end pipeline")
 features_app = typer.Typer(add_completion=False, help="Feature building")
 baselines_app = typer.Typer(add_completion=False, help="Baseline models")
+report_app = typer.Typer(add_completion=False, help="Reporting utilities")
 
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(config_app, name="config")
@@ -42,6 +44,7 @@ app.add_typer(dataset_app, name="dataset")
 app.add_typer(run_app, name="run")
 app.add_typer(features_app, name="features")
 app.add_typer(baselines_app, name="baselines")
+app.add_typer(report_app, name="report")
 
 
 def _resolve_config(arg: Optional[Path], opt: Optional[Path]) -> Path:
@@ -134,7 +137,11 @@ def dataset_parquetify(
     run_id: str = typer.Option(..., "--run-id", help="Existing run_id to convert CSV artifacts to Parquet."),
     force: bool = typer.Option(False, "--force", help="Overwrite existing Parquet artifacts if present."),
 ):
-    """Explicit conversion to Parquet (ramping toward Parquet-mandatory milestone)."""
+    """Migrate a legacy run that contains CSV artifacts to Parquet.
+
+This writes `.parquet` files next to existing `.csv` files, updates the run manifest to
+point to Parquet paths, and keeps the CSV files (migration keeps originals).
+"""
     cfg_path = _resolve_config(config, config_opt)
     cfg = load_config(cfg_path)
     rdir = parquetify_run(cfg, run_id=run_id, force=force)
@@ -174,6 +181,21 @@ def baselines_run(
     rdir = run_login_baselines_for_run(cfg, run_id=run_id, force=force)
     typer.echo(str(rdir))
     _print_artifacts(rdir)
+
+@report_app.command("generate")
+def report_generate(
+    config: Optional[Path] = typer.Argument(None),
+    *,
+    config_opt: Optional[Path] = typer.Option(None, "--config", "-c", help="Path to YAML config."),
+    run_id: str = typer.Option(..., "--run-id", help="Existing run_id to generate report for."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing report artifacts."),
+):
+    """Generate a stitched final report (D-0006) for a run."""
+    cfg_path = _resolve_config(config, config_opt)
+    cfg = load_config(cfg_path)
+    out = generate_final_report_for_run(cfg, run_id=run_id, force=force)
+    typer.echo(str(out))
+
 @run_app.command("skynet")
 def run_skynet(
     config: Optional[Path] = typer.Argument(None),

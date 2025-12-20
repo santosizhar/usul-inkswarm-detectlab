@@ -37,15 +37,17 @@ This writes under:
 - `runs/<run_id>/reports/summary.md` — human-readable summary (includes formats written)
 
 ## Troubleshooting
-### Parquet engine missing (CSV fallback)
-DetectLab **prefers Parquet**. If a Parquet engine (e.g., `pyarrow`) is not available, it will fall back to CSV.
-
-You will see:
-- `format: csv` and a note like `parquet_failed:ImportError` in the manifest and summary.
+### Parquet engine missing (hard fail as of D-0005)
+DetectLab requires Parquet. If the Parquet engine is missing, commands will fail closed with instructions.
 
 Fix:
 ```bash
 uv pip install pyarrow
+```
+
+If you are validating an older run that still has CSV artifacts, migrate it first:
+```bash
+detectlab dataset parquetify -c <config.yaml> --run-id <RUN_ID> --force
 ```
 
 ## FeatureLab + BaselineLab
@@ -56,9 +58,26 @@ detectlab features build -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_
 detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
 ```
 
-## Explicit Parquet conversion
+## Parquet mandatory (D-0005)
+
+All pipeline artifacts are written/read as **Parquet**.
+
+### Migrate a legacy CSV run
+
+If you have an older run (or fixture) that still has `.csv` artifacts, migrate it first:
 
 ```bash
-# convert any CSV artifacts to Parquet for a run
-detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
+detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
 ```
+
+This writes `.parquet` files next to the `.csv` files and updates the run manifest to point to Parquet.
+
+
+
+## Generate a final report (D-0006)
+
+```bash
+uv run detectlab report generate -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001
+```
+
+This writes `runs/<run_id>/reports/final_report.md` and `insights.json`.
