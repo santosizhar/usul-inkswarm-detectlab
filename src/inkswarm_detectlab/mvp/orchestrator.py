@@ -115,7 +115,7 @@ def run_mvp(
 
     # D-0016: generate stakeholder-friendly executive summary (MD + HTML) and HTML render of summary.md
     try:
-        write_exec_summary(run_dir=run_dir, rr_provisional=True, d0004_deferred=True)
+        write_exec_summary(run_dir=rdir, rr_provisional=True, d0004_deferred=True)
     except Exception as e:
         # Fail-soft for reporting extras; core pipeline should remain usable
         logger.warning(f"Exec summary generation failed: {e}")

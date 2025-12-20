@@ -167,3 +167,10 @@ How to read them (non-technical):
   Stability asks: “if we keep that same threshold, does recall collapse on other splits?”
 
 If you only read one thing, read the **stability table** at the top of `eval_stability_login_attempt.md`.
+
+
+## What to open after a run
+- `runs/<RUN_ID>/share/OPEN_ME_FIRST.md`
+- `runs/<RUN_ID>/share/ui_bundle/index.html`
+- `runs/<RUN_ID>/share/EXEC_SUMMARY.html`
+- `runs/<RUN_ID>/share/summary.html`

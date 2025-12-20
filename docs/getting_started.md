@@ -39,3 +39,10 @@ detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0
 ```bash
 detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
 ```
+
+
+## What to open after a run
+- `runs/<RUN_ID>/share/OPEN_ME_FIRST.md`
+- `runs/<RUN_ID>/share/ui_bundle/index.html`
+- `runs/<RUN_ID>/share/EXEC_SUMMARY.html`
+- `runs/<RUN_ID>/share/summary.html`
