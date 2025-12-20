@@ -112,10 +112,20 @@ Every meaningful change should produce:
 ---
 
 ## Sharing results (for stakeholders)
-To share a run:
-1) Share the `runs/<run_id>/reports/summary.md`
-2) Share `runs/<run_id>/models/login_attempt/baselines/report.md`
-3) If needed for reproducibility, share `manifest.json` and the RR evidence bundle
+To share results with non-technical stakeholders, the easiest path is the **static HTML viewer**.
+
+### Option A — Static HTML viewer (recommended)
+Generate a self-contained folder you can send via email/Drive/Slack:
+```bash
+python -m inkswarm_detectlab ui export -c configs/skynet_mvp.yaml --run-ids RUN_ID_1,RUN_ID_2 --out-dir ui_bundle
+```
+- Supports up to **5** runs (`nmax=5`) for side-by-side comparison.
+- Open `ui_bundle/index.html` in any modern browser (no server needed).
+
+### Option B — Share the raw reports
+- `runs/<run_id>/reports/summary.md`
+- `runs/<run_id>/models/login_attempt/baselines/report.md`
+- RR evidence bundle (if you ran RR-0001): `rr_evidence/RR-0001/<base_run_id>/`
 
 ---
 

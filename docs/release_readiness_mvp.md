@@ -34,6 +34,7 @@ Expected files:
 - `rr_mvp.log` — full log output
 - `signature_A.json` and `signature_B.json` — determinism signatures
 - `rr_error.txt` — present only on failure
+- `ui_bundle/` — static stakeholder viewer comparing the two runs (open `index.html`)
 
 RR also writes a short markdown evidence note under:
 - `journals/inkswarm-detectlab__RR_EVIDENCE__RR-0001__<base_run_id>.md`

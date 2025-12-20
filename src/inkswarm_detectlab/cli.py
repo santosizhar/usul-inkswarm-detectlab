@@ -11,6 +11,8 @@ from .config import load_config
 from .pipeline import generate_raw, build_dataset, run_all
 from .features import build_login_features_for_run
 from .models import run_login_baselines_for_run
+from .ui.summarize import write_ui_summary
+from .ui.bundle import export_ui_bundle
 from .utils.parquetify import parquetify_run
 from .io.manifest import read_manifest
 from .io.paths import manifest_path
@@ -51,6 +53,8 @@ dataset_app = typer.Typer(add_completion=False, help="Dataset building")
 run_app = typer.Typer(add_completion=False, help="End-to-end pipeline")
 features_app = typer.Typer(add_completion=False, help="Feature building")
 baselines_app = typer.Typer(add_completion=False, help="Baseline models")
+ui_app = typer.Typer(add_completion=False, help="Shareable UI bundles (static HTML)")
+
 
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(config_app, name="config")
@@ -59,6 +63,8 @@ app.add_typer(dataset_app, name="dataset")
 app.add_typer(run_app, name="run")
 app.add_typer(features_app, name="features")
 app.add_typer(baselines_app, name="baselines")
+app.add_typer(ui_app, name="ui")
+
 
 
 @app.command("doctor")
@@ -249,6 +255,37 @@ def run_skynet(
     rdir, _ = run_all(cfg, run_id=run_id)
     typer.echo(str(rdir))
     _print_artifacts(rdir)
+
+
+
+
+@ui_app.command("summarize")
+def ui_summarize(
+    config: Path = typer.Option(..., "--config", "-c", help="Path to YAML config."),
+    run_id: str = typer.Option(..., "--run-id", help="Run id to summarize."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing ui_summary.json."),
+):
+    """Write runs/<run_id>/ui/ui_summary.json for stable UI consumption."""
+    cfg = load_config(config)
+    out = write_ui_summary(cfg, run_id=run_id, force=force)
+    typer.echo(str(out))
+
+
+@ui_app.command("export")
+def ui_export(
+    config: Path = typer.Option(..., "--config", "-c", help="Path to YAML config."),
+    run_ids: str = typer.Option(..., "--run-ids", help="Comma-separated list of run ids (nmax=5)."),
+    out_dir: Path = typer.Option(Path("ui_bundle"), "--out-dir", help="Output folder for static HTML bundle."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing ui_summary.json and bundle files."),
+):
+    """Export a self-contained static HTML viewer for up to 5 runs.
+
+    Open the resulting index.html directly in a browser (no server required).
+    """
+    cfg = load_config(config)
+    rids = [r.strip() for r in run_ids.split(",") if r.strip()]
+    export_ui_bundle(cfg, run_ids=rids, out_dir=out_dir, force=force)
+    typer.echo(str(out_dir))
 
 
 def main():

@@ -53,6 +53,9 @@ run_one() {
     exit 2
   fi
 
+  # Export stakeholder UI bundle (self-contained HTML; compares runs)
+  python -m inkswarm_detectlab ui export -c "$CONFIG" --run-ids "${RUN_A},${RUN_B}" --out-dir "$EVIDENCE_DIR/ui_bundle" --force
+
   python -m inkswarm_detectlab.tools.rr_evidence_md \
     --base-run-id "$BASE_RUN_ID" \
     --run-a "$RUN_A" \

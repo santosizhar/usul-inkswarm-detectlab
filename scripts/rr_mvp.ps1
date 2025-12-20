@@ -72,6 +72,12 @@ try {
     throw "Determinism check failed: signature_A.json != signature_B.json"
   }
 
+
+  # Export stakeholder UI bundle (self-contained HTML; compares runs)
+  $uiOut = Join-Path $evidenceDir "ui_bundle"
+  & python -m inkswarm_detectlab ui export -c $Config --run-ids "$runA,$runB" --out-dir $uiOut --force
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): ui export" }
+
   # Evidence summary into journals
   $evidenceMd = "journals/inkswarm-detectlab__RR_EVIDENCE__RR-0001__${RunId}.md"
   & python -m inkswarm_detectlab.tools.rr_evidence_md --base-run-id $RunId --run-a $runA --run-b $runB --sig-a (Join-Path $evidenceDir "signature_A.json") --sig-b (Join-Path $evidenceDir "signature_B.json") --out $evidenceMd
