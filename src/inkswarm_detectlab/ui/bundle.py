@@ -57,7 +57,7 @@ def export_ui_bundle(
   <header class="top">
     <div class="wrap">
       <div class="title">Inkswarm DetectLab — MVP Results Viewer</div>
-      <div class="subtitle">Stakeholder-friendly comparison of up to 5 runs (headline = user holdout)</div>
+      <div class="subtitle">Stakeholder-friendly comparison of up to 5 runs — <b>user_holdout</b> = generalization to new users (primary), <b>time_eval</b> = time drift check (secondary).</div>
       <div class="meta">Generated: {_now_utc_short()}</div>
     </div>
   </header>
@@ -78,12 +78,23 @@ def export_ui_bundle(
           <option value="detailed">Detailed</option>
         </select>
       </div>
+<div class="control">
+  <label for="goto">Go to run</label>
+  <select id="goto">
+    <option value="" selected>Select a run…</option>
+  </select>
+</div>
       <div class="hint">
         Tip: Share this folder as-is. Open <code>index.html</code> in any modern browser.
       </div>
-    </section>
+</section>
 
-    <div id="content"></div>
+<section class="banner" id="overview">
+  <span class="badge">Truth split</span>
+  <div><b>User Holdout</b> is the primary evaluation (generalization). <b>Time Eval</b> is the drift check.</div>
+</section>
+
+<div id="content"></div>
 
     <section class="foot">
       <h2>How to interpret</h2>
@@ -91,6 +102,7 @@ def export_ui_bundle(
         <li><b>PR-AUC</b> (higher is better) is a good headline metric for rare positives.</li>
         <li><b>Recall @ 1% FPR</b> shows how many true positives you catch while keeping false alarms low.</li>
         <li><b>Time Eval</b> tests stability over time; <b>User Holdout</b> tests generalization to new users.</li>
+        <li><b>Run signature</b> shows config hash and (if available) code hash for traceability.</li>
       </ul>
     </section>
   </main>
@@ -113,6 +125,9 @@ body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,
 label{color:var(--muted); font-size:12px}
 select{background:var(--panel); border:1px solid var(--line); color:var(--text); padding:10px; border-radius:10px}
 .hint{color:var(--muted); font-size:12px; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; flex: 1}
+.banner{display:flex; gap:12px; align-items:center; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:rgba(122,162,255,0.08); margin:0 0 12px}
+.badge{display:inline-block; padding:3px 10px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,0.02); color:var(--muted); font-size:12px}
+.kv .pill.missing{opacity:0.85}
 .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px}
 .card h2{margin:0 0 8px; font-size:16px}
 .small{color:var(--muted); font-size:12px}
@@ -143,6 +158,7 @@ window.__RUN_DATA__ = {json.dumps(data, indent=2)};
   const content = $("content");
   const metricSel = $("metric");
   const detailSel = $("detail");
+  const gotoSel = $("goto");
 
   function fmt(x) {{
     if (x === null || x === undefined) return "—";
@@ -174,6 +190,29 @@ window.__RUN_DATA__ = {json.dumps(data, indent=2)};
     const metricKey = metricSel.value;
     const detail = detailSel.value;
     const runs = (window.__RUN_DATA__ && window.__RUN_DATA__.runs) || [];
+if (gotoSel && !gotoSel.dataset.ready) {{
+  const esc = (s) => String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const opts = ['<option value="" selected>Select a run…</option>']
+    .concat(runs.map((r) => {{
+      const v = r.run_id || "";
+      const safe = esc(v);
+      return `<option value="${{safe}}">${{safe}}</option>`;
+    }}));
+  gotoSel.innerHTML = opts.join("");
+  gotoSel.addEventListener("change", () => {{
+    const v = gotoSel.value;
+    if (!v) return;
+    const a = encodeURIComponent(v);
+    const el = document.getElementById(`run-${{a}}`);
+    if (el) el.scrollIntoView({{behavior: "smooth", block: "start"}});
+  }});
+  gotoSel.dataset.ready = "1";
+}}
+
     content.innerHTML = "";
 
     runs.forEach((r) => {{
@@ -186,14 +225,21 @@ window.__RUN_DATA__ = {json.dumps(data, indent=2)};
       const noteBits = [];
       if (target !== null && target !== undefined) noteBits.push(`<span class="pill">Target FPR: <b>${{fmt(target)}}</b></span>`);
       if (env && env.python) noteBits.push(`<span class="pill">Python: <b>${{env.python.split(" ")[0]}}</b></span>`);
-      if (env && env.platform) noteBits.push(`<span class="pill">Platform: <b>${{env.platform}}</b></span>`);
-      if (sig && sig.config_hash) noteBits.push(`<span class="pill">Config: <b>${{sig.config_hash.slice(0,8)}}</b></span>`);
-      if (sig && sig.github_sha) noteBits.push(`<span class="pill">Code: <b>${{sig.github_sha.slice(0,8)}}</b></span>`);
+      if (env && env.platform) noteBits.push(`<span class="pill">Platform: <b>${{env.platform}}</b></span>`);if (sig && sig.config_hash) {{
+  noteBits.push(`<span class="pill" title="${{sig.config_hash}}">Config: <b>${{sig.config_hash.slice(0,8)}}</b></span>`);
+}} else {{
+  noteBits.push(`<span class="pill missing">Config: <b>—</b></span>`);
+}}
+if (sig && sig.github_sha) {{
+  noteBits.push(`<span class="pill" title="${{sig.github_sha}}">Code: <b>${{sig.github_sha.slice(0,8)}}</b></span>`);
+}} else {{
+  noteBits.push(`<span class="pill missing">Code: <b>(no git)</b></span>`);
+}}
 
       const card = document.createElement("section");
       card.className = "card";
       card.innerHTML = `
-        <h2>Run: <code>${{r.run_id}}</code></h2>
+        <h2 id="run-${{encodeURIComponent(r.run_id || '')}}">Run: <code>${{r.run_id}}</code></h2>
         <div class="small">Generated: ${{r.generated_at_utc || "—"}} • Timezone: ${{r.timezone || "—"}}</div>
         <div class="kv">${{noteBits.join("")}}</div>
       `;
