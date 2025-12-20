@@ -48,10 +48,21 @@ run_one() {
   run_one "$RUN_B"
   python -m inkswarm_detectlab.tools.rr_signature --run-id "$RUN_B" --out "$EVIDENCE_DIR/signature_B.json"
 
-  if ! diff -q "$EVIDENCE_DIR/signature_A.json" "$EVIDENCE_DIR/signature_B.json" >/dev/null; then
-    echo "Determinism check failed: signature_A.json != signature_B.json"
+  # v2 rr_signature emits a stable signature_digest (normalized against run_id).
+  python - <<'PY'
+import json, sys
+a=json.load(open(sys.argv[1],'r',encoding='utf-8'))
+b=json.load(open(sys.argv[2],'r',encoding='utf-8'))
+da=a.get('signature_digest'); db=b.get('signature_digest')
+if da and db:
+    sys.exit(0 if da==db else 2)
+# fallback: exact equality
+sys.exit(0 if json.dumps(a,sort_keys=True)==json.dumps(b,sort_keys=True) else 2)
+PY
+  "$EVIDENCE_DIR/signature_A.json" "$EVIDENCE_DIR/signature_B.json" || {
+    echo "Determinism check failed: signatures mismatch"
     exit 2
-  fi
+  }
 
   # Export stakeholder UI bundle (self-contained HTML; compares runs)
   python -m inkswarm_detectlab ui export -c "$CONFIG" --run-ids "${RUN_A},${RUN_B}" --out-dir "$EVIDENCE_DIR/ui_bundle" --force

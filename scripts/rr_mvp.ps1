@@ -66,10 +66,30 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): rr_signature B" }
 
   # Compare signatures (determinism sanity)
-  $sigA = Get-Content (Join-Path $evidenceDir "signature_A.json") -Raw
-  $sigB = Get-Content (Join-Path $evidenceDir "signature_B.json") -Raw
-  if ($sigA -ne $sigB) {
-    throw "Determinism check failed: signature_A.json != signature_B.json"
+  # v2 rr_signature normalizes run_id-sensitive fields and emits a stable signature_digest.
+  $sigAPath = (Join-Path $evidenceDir "signature_A.json")
+  $sigBPath = (Join-Path $evidenceDir "signature_B.json")
+  $sigA = Get-Content $sigAPath -Raw
+  $sigB = Get-Content $sigBPath -Raw
+
+  try {
+    $aObj = $sigA | ConvertFrom-Json
+    $bObj = $sigB | ConvertFrom-Json
+    if ($aObj.signature_digest -and $bObj.signature_digest) {
+      if ($aObj.signature_digest -ne $bObj.signature_digest) {
+        throw "Determinism check failed: signature_digest mismatch"
+      }
+    } else {
+      # Fallback: exact JSON equality (older schema)
+      if ($sigA -ne $sigB) {
+        throw "Determinism check failed: signature_A.json != signature_B.json"
+      }
+    }
+  } catch {
+    # If parsing fails, fallback to exact equality
+    if ($sigA -ne $sigB) {
+      throw "Determinism check failed: signature_A.json != signature_B.json"
+    }
   }
 
 

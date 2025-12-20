@@ -33,6 +33,7 @@ RR writes evidence under:
 Expected files:
 - `rr_mvp.log` — full log output
 - `signature_A.json` and `signature_B.json` — determinism signatures
+- NOTE: the signature is **normalized**: run IDs and run_id columns are ignored so A/B can be compared directly.
 - `rr_error.txt` — present only on failure
 - `ui_bundle/` — static stakeholder viewer comparing the two runs (open `index.html`)
 
@@ -44,6 +45,19 @@ If RR fails:
 - it cleans up the run folders (`runs/<run_id>_A`, `runs/<run_id>_B`)
 - it leaves `rr_error.txt` under the evidence directory
 - it exits non-zero
+
+
+## Determinism signature (RR-0001)
+RR uses `python -m inkswarm_detectlab.tools.rr_signature` to write a **normalized** JSON signature per run:
+- `rr_evidence/RR-0001/<base_run_id>/signature_A.json`
+- `rr_evidence/RR-0001/<base_run_id>/signature_B.json`
+
+In the current schema (v2), the signature includes:
+- `signature_digest` (primary deterministic digest)
+- `hashes_digest`, `features_digest`, `baselines_digest` (supporting digests)
+
+RR compares `signature_digest` across A/B (fail-closed).
+
 
 ## MVP baseline set (locked)
 - `logreg`
