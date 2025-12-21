@@ -63,6 +63,27 @@
       "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_spec.json",
       "rows": null
     },
+    "logs/baselines": {
+      "content_hash": "43a118393cbf0c688ebd34f528dcdccc42a12269298e36ef7c8c3c5e73501fa4",
+      "format": "text",
+      "note": "UNCOMMITTED",
+      "path": "RUN_SAMPLE_SMOKE_0001\\logs\\baselines.log",
+      "rows": null
+    },
+    "models/login_attempt/baselines/metrics": {
+      "content_hash": "591d0e8862971186190332bb88b82b16c0785045f446e49f51a0b3017714582c",
+      "format": "json",
+      "note": "UNCOMMITTED",
+      "path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\metrics.json",
+      "rows": null
+    },
+    "models/login_attempt/baselines/report": {
+      "content_hash": "099052e906434130991f54087727857c213a18653c4edec976a97a9cd004abae",
+      "format": "md",
+      "note": "UNCOMMITTED",
+      "path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\report.md",
+      "rows": null
+    },
     "raw/checkout_attempt": {
       "content_hash": "7abf9945c19ffd366b43d313b3fa000ecbb54e14533e98251770862822eddb40",
       "format": "parquet",

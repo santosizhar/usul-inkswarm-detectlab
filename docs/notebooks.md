@@ -1,5 +1,11 @@
 # Notebooks
 
+## Important: run from the repo root
+
+The notebooks use relative paths like `configs/...` and `runs/...`.
+
+To avoid `FileNotFoundError`, **start Jupyter from the repo root** (the folder that contains `pyproject.toml`), or rely on the first notebook cell that auto-detects the repo root and `chdir`s there.
+
 The notebooks are **optional**. They are meant for:
 - quick inspection of outputs (`runs/<run_id>/...`),
 - interactive exploration for portfolio reviewers,
