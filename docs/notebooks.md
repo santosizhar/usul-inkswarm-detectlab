@@ -100,3 +100,8 @@ Recommended workflow:
 ## D-0023: StepResult contract
 
 `notebooks/00_step_runner.ipynb` uses `inkswarm_detectlab.ui.step_runner` step wrappers which return a typed `StepResult` and persist the latest per-step result to `runs/<run_id>/manifest.json` under `steps`.
+
+
+## D-0024: Manifest-first reuse policy
+
+The step notebook uses `inkswarm_detectlab.ui.reuse_policy.decide_reuse` to decide reuse vs compute, preferring a matching `config_hash` in `manifest.json` step records when available.

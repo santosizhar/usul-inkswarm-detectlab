@@ -39,6 +39,8 @@ from ..mvp.handover import write_mvp_handover
 from ..reports.exec_summary import write_exec_summary
 
 from .steps import StepRecorder
+from .reuse_policy import decide_reuse
+
 from .step_contract import (
     StepResult,
     StepInputs,
@@ -176,15 +178,22 @@ def step_dataset(
         "dataset_user_holdout": ds_hold,
     }
 
-    have_all = all(Path(p).exists() for k, p in expected.items() if k != "run_dir")
-    if reuse_if_exists and have_all and not force:
+    dec = decide_reuse(
+        run_dir=rdir,
+        step_name="dataset",
+        current_config_hash=inputs.config_hash,
+        expected_outputs={k: Path(v) for k, v in expected.items()},
+        reuse_if_exists=reuse_if_exists,
+        force=force,
+    )
+    if dec.mode == "reuse":
         step = StepResult(
             name="dataset",
             status="skipped",
-            decision=ReuseDecision(mode="reuse", reason="All expected raw+dataset artifacts already exist on disk.", used_manifest=False, forced=False),
+            decision=dec,
             inputs=inputs,
             outputs=_artifact_map({k: Path(v) for k, v in expected.items()}),
-            notes=["Skipped compute (reuse_if_exists=True, force=False)."],
+            notes=["Skipped compute based on reuse policy."],
         )
         return _finalize_step(rdir, step)
 
@@ -197,7 +206,7 @@ def step_dataset(
     step = StepResult(
         name="dataset",
         status="ok",
-        decision=ReuseDecision(mode="compute", reason="Generated raw+dataset artifacts via pipeline.run_all(...).", used_manifest=False, forced=force),
+        decision=ReuseDecision(mode="compute", reason="Generated raw+dataset artifacts via pipeline.run_all(...).", used_manifest=dec.used_manifest, forced=force),
         inputs=inputs,
         outputs=_artifact_map({k: Path(v) for k, v in expected.items()}),
     )
@@ -236,18 +245,26 @@ def step_features(
     feat_path = (rdir / "features" / "login_attempt" / "features").with_suffix(".parquet")
     expected = {"features_login": feat_path}
 
-    if reuse_if_exists and feat_path.exists() and not force:
+    dec = decide_reuse(
+        run_dir=rdir,
+        step_name="features",
+        current_config_hash=inputs.config_hash,
+        expected_outputs={k: Path(v) for k, v in expected.items()},
+        reuse_if_exists=reuse_if_exists,
+        force=force,
+    )
+    if dec.mode == "reuse":
         step = StepResult(
             name="features",
             status="skipped",
-            decision=ReuseDecision(mode="reuse", reason="Feature table already exists on disk.", used_manifest=False, forced=False),
+            decision=dec,
             inputs=inputs,
             outputs=_artifact_map(expected),
-            notes=["Skipped build (reuse_if_exists=True, force=False)."],
+            notes=["Skipped build based on reuse policy."],
         )
         return _finalize_step(rdir, step)
 
-    # Attempt shared-cache restore before compute
+    # Attempt shared-cache restore before compute (only makes sense when outputs are missing)
     cache_hit = False
     cache_key = None
     if use_cache and not force:
@@ -258,7 +275,7 @@ def step_features(
             step = StepResult(
                 name="features",
                 status="ok",
-                decision=ReuseDecision(mode="reuse", reason="Restored feature artifacts from shared cache.", used_manifest=False, forced=False),
+                decision=ReuseDecision(mode="reuse", reason="Restored feature artifacts from shared cache.", used_manifest=dec.used_manifest, forced=False),
                 inputs=inputs,
                 outputs=_artifact_map(expected),
                 summary={"cache_hit": True, "cache_key": cache_key},
@@ -273,21 +290,17 @@ def step_features(
     else:
         build_login_features_for_run(cfg, run_id=run_id, force=force)
 
-    # Optionally write to cache after compute
     if write_cache and use_cache:
         save_feature_artifacts_to_cache(cfg, rdir)
 
-    notes = []
-    if cache_hit:
-        notes.append("Cache was consulted but did not produce a usable hit; computed features.")
     step = StepResult(
         name="features",
         status="ok",
-        decision=ReuseDecision(mode="compute", reason="Built features via features.runner.build_login_features_for_run(...).", used_manifest=False, forced=force),
+        decision=ReuseDecision(mode="compute", reason="Built features via features.runner.build_login_features_for_run(...).", used_manifest=dec.used_manifest, forced=force),
         inputs=inputs,
         outputs=_artifact_map(expected),
         summary={"cache_hit": cache_hit, "cache_key": cache_key},
-        notes=notes,
+        notes=["Cache was consulted but did not produce a usable hit; computed features."] if cache_hit else [],
     )
     return _finalize_step(rdir, step)
 
@@ -325,8 +338,17 @@ def step_baselines(
     metrics_path = out_dir / "metrics.json"
     expected = {"baselines_dir": out_dir, "metrics_json": metrics_path}
 
+    dec = decide_reuse(
+        run_dir=rdir,
+        step_name="baselines",
+        current_config_hash=inputs.config_hash,
+        expected_outputs={k: Path(v) for k, v in expected.items()},
+        reuse_if_exists=reuse_if_exists,
+        force=force,
+    )
+
     present, metrics_path0 = _baselines_present(rdir)
-    if reuse_if_exists and present and not force:
+    if dec.mode == "reuse" and present:
         summary = {}
         if metrics_path0 and metrics_path0.exists():
             try:
@@ -336,13 +358,17 @@ def step_baselines(
         step = StepResult(
             name="baselines",
             status="skipped",
-            decision=ReuseDecision(mode="reuse", reason="Baseline metrics + at least one .joblib already exist on disk.", used_manifest=False, forced=False),
+            decision=dec,
             inputs=inputs,
             outputs=_artifact_map(expected),
-            notes=["Skipped training (reuse_if_exists=True, force=False)."],
+            notes=["Skipped training based on reuse policy."],
             summary=summary,
         )
         return _finalize_step(rdir, step)
+
+    # If manifest/disk suggest reuse but baseline presence check failed, compute instead.
+    if dec.mode == "reuse" and not present:
+        dec = ReuseDecision(mode="compute", reason="Baseline presence check failed (metrics and at least one .joblib required).", used_manifest=dec.used_manifest, forced=force)
 
     if rec:
         with rec.step("train_baselines", details={"run_id": run_id, "force": force}):
@@ -362,7 +388,7 @@ def step_baselines(
     step = StepResult(
         name="baselines",
         status=status,
-        decision=ReuseDecision(mode="compute", reason="Trained baselines via models.runner.run_login_baselines_for_run(...).", used_manifest=False, forced=force),
+        decision=ReuseDecision(mode="compute", reason="Trained baselines via models.runner.run_login_baselines_for_run(...).", used_manifest=dec.used_manifest, forced=force),
         inputs=inputs,
         outputs=_artifact_map(expected),
         summary=summary2,
@@ -413,14 +439,22 @@ def step_eval(
         "eval_stability_md": out_reports / "eval_stability_login_attempt.md",
     }
 
-    if reuse_if_exists and _eval_present(rdir) and not force:
+    dec = decide_reuse(
+        run_dir=rdir,
+        step_name="eval",
+        current_config_hash=inputs.config_hash,
+        expected_outputs={k: Path(v) for k, v in expected.items()},
+        reuse_if_exists=reuse_if_exists,
+        force=force,
+    )
+    if dec.mode == "reuse" and _eval_present(rdir):
         step = StepResult(
             name="eval",
             status="skipped",
-            decision=ReuseDecision(mode="reuse", reason="Eval slice/stability outputs already exist on disk.", used_manifest=False, forced=False),
+            decision=dec,
             inputs=inputs,
             outputs=_artifact_map(expected),
-            notes=["Skipped eval (reuse_if_exists=True, force=False)."],
+            notes=["Skipped eval based on reuse policy."],
         )
         return _finalize_step(rdir, step)
 
@@ -436,7 +470,7 @@ def step_eval(
     step = StepResult(
         name="eval",
         status=str(status),
-        decision=ReuseDecision(mode="compute", reason="Ran eval via eval.runner.run_login_eval_for_run(...).", used_manifest=False, forced=force),
+        decision=ReuseDecision(mode="compute", reason="Ran eval via eval.runner.run_login_eval_for_run(...).", used_manifest=dec.used_manifest, forced=force),
         inputs=inputs,
         outputs=_artifact_map(expected),
         notes=notes,
@@ -485,19 +519,26 @@ def step_export(
         "share_exec_summary_md": share_dir / "exec_summary.md",
     }
 
-    if reuse_if_exists and _share_present(rdir) and not force:
+    dec = decide_reuse(
+        run_dir=rdir,
+        step_name="export",
+        current_config_hash=inputs.config_hash,
+        expected_outputs={k: Path(v) for k, v in expected.items()},
+        reuse_if_exists=reuse_if_exists,
+        force=force,
+    )
+    if dec.mode == "reuse" and _share_present(rdir):
         step = StepResult(
             name="export",
             status="skipped",
-            decision=ReuseDecision(mode="reuse", reason="Share bundle outputs already exist on disk.", used_manifest=False, forced=False),
+            decision=dec,
             inputs=inputs,
             outputs=_artifact_map(expected),
-            notes=["Skipped export (reuse_if_exists=True, force=False)."],
+            notes=["Skipped export based on reuse policy."],
         )
         return _finalize_step(rdir, step)
 
     def _do() -> None:
-        # Keep output surfaces stable; these funcs manage their own overwrites/policies.
         write_ui_summary(cfg, run_id=run_id)
         write_exec_summary(cfg, run_id=run_id)
         export_ui_bundle(cfg, run_id=run_id)
@@ -513,7 +554,7 @@ def step_export(
     step = StepResult(
         name="export",
         status="ok",
-        decision=ReuseDecision(mode="compute", reason="Exported share bundle via ui.* + share.evidence.* helpers.", used_manifest=False, forced=force),
+        decision=ReuseDecision(mode="compute", reason="Exported share bundle via ui.* + share.evidence.* helpers.", used_manifest=dec.used_manifest, forced=force),
         inputs=inputs,
         outputs=_artifact_map(expected),
     )
