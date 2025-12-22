@@ -16,6 +16,12 @@ from typing import Any, Dict, Optional, Tuple
 
 import json
 
+
+def _read_json(path: Path) -> Dict[str, Any]:
+    """Read a JSON file as UTF-8 (stdlib-only)."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 from ..config import load_config
 from ..pipeline import run_all, _config_fingerprint
 from ..utils.run_id import make_run_id
@@ -352,7 +358,7 @@ def step_baselines(
         summary = {}
         if metrics_path0 and metrics_path0.exists():
             try:
-                summary = read_json(metrics_path0).get("meta", {})
+                summary = _read_json(metrics_path0).get("meta", {})
             except Exception:  # noqa: BLE001
                 summary = {}
         step = StepResult(
@@ -381,7 +387,7 @@ def step_baselines(
     summary2: Dict[str, Any] = {}
     if metrics_path2 and metrics_path2.exists():
         try:
-            summary2 = read_json(metrics_path2).get("meta", {})
+            summary2 = _read_json(metrics_path2).get("meta", {})
         except Exception:  # noqa: BLE001
             summary2 = {}
 
@@ -559,4 +565,3 @@ def step_export(
         outputs=_artifact_map(expected),
     )
     return _finalize_step(rdir, step)
-

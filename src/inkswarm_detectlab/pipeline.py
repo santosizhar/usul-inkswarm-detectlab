@@ -190,6 +190,16 @@ def generate_raw(cfg: AppConfig, run_id: str | None = None) -> tuple[Path, dict[
         schema_name="checkout_attempt",
     )
 
+
+    # Preserve step records if this run_id is being regenerated.
+    mpath = manifest_path(rdir)
+    preserved_steps: Any = None
+    if mpath.exists():
+        try:
+            preserved_steps = read_manifest(mpath).get("steps")
+        except Exception:  # noqa: BLE001
+            preserved_steps = None
+
     manifest: dict[str, Any] = {
         "run_id": rid,
         "schema_version": cfg.run.schema_version,
@@ -200,6 +210,9 @@ def generate_raw(cfg: AppConfig, run_id: str | None = None) -> tuple[Path, dict[
         "generator_meta": meta,
         "code": {"github_sha": os.environ.get("GITHUB_SHA")},
     }
+
+    if preserved_steps is not None:
+        manifest["steps"] = preserved_steps
     write_manifest(manifest_path(rdir), manifest)
     return rdir, manifest
 
