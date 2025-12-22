@@ -75,3 +75,23 @@ If you used a different run id than `RUN_XXX_0005`, set the `run_id` variable in
 
 - Baseline notebook: prints a path and a snippet of:
   - `runs/<run_id>/models/login_attempt/baselines/report.md`
+## Step Runner notebook (D-0022)
+
+**Notebook:** `notebooks/00_step_runner.ipynb`
+
+Purpose: run the pipeline **step-by-step** for `login_attempt` while keeping the core code structure intact.
+It is intentionally a thin wrapper over existing modules (pipeline/features/models/eval/ui/share).
+
+What you get:
+- a top-of-notebook step list / TOC
+- per-step toggles (run / skip / force)
+- per-step prints: inputs, output paths, quick summaries, and what to run next
+- shared feature-cache reuse where available
+- an end-of-notebook step table via `StepRecorder`
+
+Recommended workflow:
+1. Start with `configs/skynet_smoke.yaml` for a tiny end-to-end run.
+2. Switch to `configs/skynet_mvp.yaml` when ready.
+3. For deep dives, open:
+   - `notebooks/02_featurelab_login_attempt.ipynb`
+   - `notebooks/03_baselinelab_login_attempt.ipynb`
