@@ -95,3 +95,8 @@ Recommended workflow:
 3. For deep dives, open:
    - `notebooks/02_featurelab_login_attempt.ipynb`
    - `notebooks/03_baselinelab_login_attempt.ipynb`
+
+
+## D-0023: StepResult contract
+
+`notebooks/00_step_runner.ipynb` uses `inkswarm_detectlab.ui.step_runner` step wrappers which return a typed `StepResult` and persist the latest per-step result to `runs/<run_id>/manifest.json` under `steps`.

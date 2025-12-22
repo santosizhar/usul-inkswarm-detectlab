@@ -11,7 +11,6 @@ Design goals (D-0022):
 These helpers intentionally avoid any notebook-only dependencies.
 """
 
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -40,16 +39,37 @@ from ..mvp.handover import write_mvp_handover
 from ..reports.exec_summary import write_exec_summary
 
 from .steps import StepRecorder
+from .step_contract import (
+    StepResult,
+    StepInputs,
+    ReuseDecision,
+    ArtifactRef,
+    record_step_result,
+)
 
 
-@dataclass(frozen=True)
-class StepOutcome:
-    name: str
-    status: str  # ok|skipped|fail|partial
-    outputs: Dict[str, str] = field(default_factory=dict)
-    notes: list[str] = field(default_factory=list)
-    summary: Dict[str, Any] = field(default_factory=dict)
 
+
+
+def _mk_inputs(cfg_path: Path, cfg: Any, run_id: str, params: Dict[str, Any] | None = None, toggles: Dict[str, Any] | None = None) -> StepInputs:
+    cfg_hash, _ = _config_fingerprint(cfg)
+    return StepInputs(
+        cfg_path=str(cfg_path),
+        run_id=run_id,
+        config_hash=cfg_hash,
+        params=params or {},
+        toggles=toggles or {},
+    )
+
+
+def _artifact_map(outputs: Dict[str, Path]) -> Dict[str, ArtifactRef]:
+    return {k: ArtifactRef(kind=k, path=str(p), exists=Path(p).exists()) for k, p in outputs.items()}
+
+
+def _finalize_step(run_dir: Path, step: StepResult) -> StepResult:
+    # Persist for visibility; does not overwrite core artifact records (it writes under manifest["steps"])
+    record_step_result(run_dir, step)
+    return step
 
 def _exists_parquet(base_no_ext: Path) -> bool:
     return base_no_ext.with_suffix(".parquet").exists()
@@ -121,38 +141,52 @@ def wire_check(cfg_path: Path, run_id: Optional[str] = None) -> Dict[str, Any]:
 def step_dataset(
     cfg: Any,
     *,
+    cfg_path: Optional[Path] = None,
     run_id: str,
     rec: Optional[StepRecorder] = None,
     reuse_if_exists: bool = True,
     force: bool = False,
-) -> StepOutcome:
+) -> StepResult:
     """Step 1: raw + dataset for login_attempt (and required cross-event raw)."""
     rdir = run_dir_for(Path(cfg.paths.runs_dir), run_id)
     rdir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(cfg, rdir)
 
-    raw_login = raw_table_basepath(rdir, "login_attempt")
-    raw_checkout = raw_table_basepath(rdir, "checkout_attempt")
-    ds_train = dataset_split_basepath(rdir, "login_attempt", "train")
-    ds_time = dataset_split_basepath(rdir, "login_attempt", "time_eval")
-    ds_hold = dataset_split_basepath(rdir, "login_attempt", "user_holdout")
+    cfg_path = cfg_path or Path("<cfg_path_unknown>")
+    inputs = _mk_inputs(
+        cfg_path,
+        cfg,
+        run_id,
+        params={"event": "login_attempt"},
+        toggles={"reuse_if_exists": reuse_if_exists, "force": force},
+    )
 
-    have_all = all(_exists_parquet(p) for p in (raw_login, raw_checkout, ds_train, ds_time, ds_hold))
+    raw_login = raw_table_basepath(rdir, "login_attempt").with_suffix(".parquet")
+    raw_checkout = raw_table_basepath(rdir, "checkout_attempt").with_suffix(".parquet")
+    ds_train = dataset_split_basepath(rdir, "login_attempt", "train").with_suffix(".parquet")
+    ds_time = dataset_split_basepath(rdir, "login_attempt", "time_eval").with_suffix(".parquet")
+    ds_hold = dataset_split_basepath(rdir, "login_attempt", "user_holdout").with_suffix(".parquet")
 
+    expected = {
+        "run_dir": rdir,
+        "raw_login_attempt": raw_login,
+        "raw_checkout_attempt": raw_checkout,
+        "dataset_train": ds_train,
+        "dataset_time_eval": ds_time,
+        "dataset_user_holdout": ds_hold,
+    }
+
+    have_all = all(Path(p).exists() for k, p in expected.items() if k != "run_dir")
     if reuse_if_exists and have_all and not force:
-        return StepOutcome(
+        step = StepResult(
             name="dataset",
             status="skipped",
-            outputs={
-                "run_dir": str(rdir),
-                "raw_login_attempt": str(raw_login.with_suffix(".parquet")),
-                "raw_checkout_attempt": str(raw_checkout.with_suffix(".parquet")),
-                "dataset_train": str(ds_train.with_suffix(".parquet")),
-                "dataset_time_eval": str(ds_time.with_suffix(".parquet")),
-                "dataset_user_holdout": str(ds_hold.with_suffix(".parquet")),
-            },
-            notes=["All raw+dataset artifacts already exist; skipped (reuse_if_exists=True, force=False)."],
+            decision=ReuseDecision(mode="reuse", reason="All expected raw+dataset artifacts already exist on disk.", used_manifest=False, forced=False),
+            inputs=inputs,
+            outputs=_artifact_map({k: Path(v) for k, v in expected.items()}),
+            notes=["Skipped compute (reuse_if_exists=True, force=False)."],
         )
+        return _finalize_step(rdir, step)
 
     if rec:
         with rec.step("raw+dataset", details={"run_id": run_id, "force": force}):
@@ -160,86 +194,102 @@ def step_dataset(
     else:
         run_all(cfg, run_id=run_id)
 
-    return StepOutcome(
+    step = StepResult(
         name="dataset",
         status="ok",
-        outputs={
-            "run_dir": str(rdir),
-            "raw_login_attempt": str(raw_login.with_suffix(".parquet")),
-            "raw_checkout_attempt": str(raw_checkout.with_suffix(".parquet")),
-            "dataset_train": str(ds_train.with_suffix(".parquet")),
-            "dataset_time_eval": str(ds_time.with_suffix(".parquet")),
-            "dataset_user_holdout": str(ds_hold.with_suffix(".parquet")),
-        },
+        decision=ReuseDecision(mode="compute", reason="Generated raw+dataset artifacts via pipeline.run_all(...).", used_manifest=False, forced=force),
+        inputs=inputs,
+        outputs=_artifact_map({k: Path(v) for k, v in expected.items()}),
     )
-
+    return _finalize_step(rdir, step)
 
 def step_features(
     cfg: Any,
     *,
+    cfg_path: Optional[Path] = None,
     run_id: str,
     rec: Optional[StepRecorder] = None,
     reuse_if_exists: bool = True,
     force: bool = False,
     use_cache: bool = True,
     write_cache: bool = True,
-) -> StepOutcome:
+) -> StepResult:
     """Step 2: build login features (or reuse cache/artifacts)."""
     rdir = run_dir_for(Path(cfg.paths.runs_dir), run_id)
     rdir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(cfg, rdir)
 
-    feat_base = rdir / "features" / "login_attempt" / "features"
-    feat_path = feat_base.with_suffix(".parquet")
+    cfg_path = cfg_path or Path("<cfg_path_unknown>")
+    inputs = _mk_inputs(
+        cfg_path,
+        cfg,
+        run_id,
+        params={"event": "login_attempt"},
+        toggles={
+            "reuse_if_exists": reuse_if_exists,
+            "force": force,
+            "use_cache": use_cache,
+            "write_cache": write_cache,
+        },
+    )
+
+    feat_path = (rdir / "features" / "login_attempt" / "features").with_suffix(".parquet")
+    expected = {"features_login": feat_path}
 
     if reuse_if_exists and feat_path.exists() and not force:
-        return StepOutcome(
+        step = StepResult(
             name="features",
             status="skipped",
-            outputs={"features_login": str(feat_path)},
-            notes=["Features table already exists; skipped (reuse_if_exists=True, force=False)."],
+            decision=ReuseDecision(mode="reuse", reason="Feature table already exists on disk.", used_manifest=False, forced=False),
+            inputs=inputs,
+            outputs=_artifact_map(expected),
+            notes=["Skipped build (reuse_if_exists=True, force=False)."],
         )
+        return _finalize_step(rdir, step)
 
+    # Attempt shared-cache restore before compute
     cache_hit = False
-    cache_note = None
+    cache_key = None
     if use_cache and not force:
         cache_info = try_restore_feature_artifacts(cfg, rdir, force_rebuild=False)
         cache_hit = bool(getattr(cache_info, "is_hit", False))
+        cache_key = getattr(cache_info, "cache_key", None)
         if cache_hit and feat_path.exists():
-            cache_note = f"Shared feature cache HIT: key={getattr(cache_info, 'cache_key', 'unknown')}"
-            return StepOutcome(
+            step = StepResult(
                 name="features",
                 status="ok",
-                outputs={"features_login": str(feat_path)},
-                notes=[cache_note],
-                summary={"cache_hit": True, "cache_key": getattr(cache_info, "cache_key", None)},
+                decision=ReuseDecision(mode="reuse", reason="Restored feature artifacts from shared cache.", used_manifest=False, forced=False),
+                inputs=inputs,
+                outputs=_artifact_map(expected),
+                summary={"cache_hit": True, "cache_key": cache_key},
+                notes=[f"Shared feature cache HIT: key={cache_key}"],
             )
+            return _finalize_step(rdir, step)
 
+    # Compute features
     if rec:
         with rec.step("build_features", details={"run_id": run_id, "force": force, "use_cache": use_cache}):
             build_login_features_for_run(cfg, run_id=run_id, force=force)
     else:
         build_login_features_for_run(cfg, run_id=run_id, force=force)
 
+    # Optionally write to cache after compute
     if write_cache and use_cache:
-        # Best-effort: if cache write fails, do not fail the notebook step.
-        try:
-            save_feature_artifacts_to_cache(cfg, rdir)
-        except Exception as e:
-            cache_note = f"Cache write skipped/failed: {e}"
+        save_feature_artifacts_to_cache(cfg, rdir)
 
     notes = []
-    if cache_note:
-        notes.append(cache_note)
-
-    return StepOutcome(
+    if cache_hit:
+        notes.append("Cache was consulted but did not produce a usable hit; computed features.")
+    step = StepResult(
         name="features",
         status="ok",
-        outputs={"features_login": str(feat_path)},
+        decision=ReuseDecision(mode="compute", reason="Built features via features.runner.build_login_features_for_run(...).", used_manifest=False, forced=force),
+        inputs=inputs,
+        outputs=_artifact_map(expected),
+        summary={"cache_hit": cache_hit, "cache_key": cache_key},
         notes=notes,
-        summary={"cache_hit": cache_hit},
     )
-
+    return _finalize_step(rdir, step)
 
 def _baselines_present(rdir: Path) -> Tuple[bool, Optional[Path]]:
     out_dir = rdir / "models" / "login_attempt" / "baselines"
@@ -251,35 +301,48 @@ def _baselines_present(rdir: Path) -> Tuple[bool, Optional[Path]]:
 def step_baselines(
     cfg: Any,
     *,
+    cfg_path: Optional[Path] = None,
     run_id: str,
     rec: Optional[StepRecorder] = None,
     reuse_if_exists: bool = True,
     force: bool = False,
-    cfg_path: Optional[Path] = None,
-) -> StepOutcome:
+) -> StepResult:
     """Step 3: train baselines (or reuse existing)."""
     rdir = run_dir_for(Path(cfg.paths.runs_dir), run_id)
     rdir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(cfg, rdir)
 
-    present, metrics_path = _baselines_present(rdir)
+    cfg_path = cfg_path or Path("<cfg_path_unknown>")
+    inputs = _mk_inputs(
+        cfg_path,
+        cfg,
+        run_id,
+        params={"event": "login_attempt"},
+        toggles={"reuse_if_exists": reuse_if_exists, "force": force},
+    )
+
+    out_dir = rdir / "models" / "login_attempt" / "baselines"
+    metrics_path = out_dir / "metrics.json"
+    expected = {"baselines_dir": out_dir, "metrics_json": metrics_path}
+
+    present, metrics_path0 = _baselines_present(rdir)
     if reuse_if_exists and present and not force:
-        summary: Dict[str, Any] = {}
-        if metrics_path:
+        summary = {}
+        if metrics_path0 and metrics_path0.exists():
             try:
-                summary = json.loads(metrics_path.read_text(encoding="utf-8"))
-            except Exception:
+                summary = read_json(metrics_path0).get("meta", {})
+            except Exception:  # noqa: BLE001
                 summary = {}
-        return StepOutcome(
+        step = StepResult(
             name="baselines",
             status="skipped",
-            outputs={
-                "baselines_dir": str(rdir / "models" / "login_attempt" / "baselines"),
-                "metrics_json": str(metrics_path) if metrics_path else "",
-            },
-            notes=["Baselines already present; skipped (reuse_if_exists=True, force=False)."],
-            summary=summary.get("meta", {}) if isinstance(summary, dict) else {},
+            decision=ReuseDecision(mode="reuse", reason="Baseline metrics + at least one .joblib already exist on disk.", used_manifest=False, forced=False),
+            inputs=inputs,
+            outputs=_artifact_map(expected),
+            notes=["Skipped training (reuse_if_exists=True, force=False)."],
+            summary=summary,
         )
+        return _finalize_step(rdir, step)
 
     if rec:
         with rec.step("train_baselines", details={"run_id": run_id, "force": force}):
@@ -289,22 +352,23 @@ def step_baselines(
 
     present2, metrics_path2 = _baselines_present(rdir)
     status = "ok" if present2 else "partial"
-    summary: Dict[str, Any] = {}
+    summary2: Dict[str, Any] = {}
     if metrics_path2 and metrics_path2.exists():
         try:
-            summary = json.loads(metrics_path2.read_text(encoding="utf-8"))
-        except Exception:
-            summary = {}
-    return StepOutcome(
+            summary2 = read_json(metrics_path2).get("meta", {})
+        except Exception:  # noqa: BLE001
+            summary2 = {}
+
+    step = StepResult(
         name="baselines",
         status=status,
-        outputs={
-            "baselines_dir": str(rdir / "models" / "login_attempt" / "baselines"),
-            "metrics_json": str(metrics_path2) if metrics_path2 else "",
-        },
-        summary=summary.get("meta", {}) if isinstance(summary, dict) else {},
+        decision=ReuseDecision(mode="compute", reason="Trained baselines via models.runner.run_login_baselines_for_run(...).", used_manifest=False, forced=force),
+        inputs=inputs,
+        outputs=_artifact_map(expected),
+        summary=summary2,
+        notes=[] if status == "ok" else ["Expected baseline artifacts were not fully present after training (partial)."],
     )
-
+    return _finalize_step(rdir, step)
 
 def _eval_present(rdir: Path) -> bool:
     out_reports = rdir / "reports"
@@ -320,26 +384,48 @@ def _eval_present(rdir: Path) -> bool:
 def step_eval(
     cfg: Any,
     *,
+    cfg_path: Optional[Path] = None,
     run_id: str,
     rec: Optional[StepRecorder] = None,
     reuse_if_exists: bool = True,
     force: bool = False,
-) -> StepOutcome:
+) -> StepResult:
     """Step 4: eval diagnostics (slice + stability) for login_attempt."""
     rdir = run_dir_for(Path(cfg.paths.runs_dir), run_id)
     rdir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(cfg, rdir)
 
+    cfg_path = cfg_path or Path("<cfg_path_unknown>")
+    inputs = _mk_inputs(
+        cfg_path,
+        cfg,
+        run_id,
+        params={"event": "login_attempt"},
+        toggles={"reuse_if_exists": reuse_if_exists, "force": force},
+    )
+
+    out_reports = rdir / "reports"
+    expected = {
+        "reports_dir": out_reports,
+        "eval_slices_json": out_reports / "eval_slices_login_attempt.json",
+        "eval_stability_json": out_reports / "eval_stability_login_attempt.json",
+        "eval_slices_md": out_reports / "eval_slices_login_attempt.md",
+        "eval_stability_md": out_reports / "eval_stability_login_attempt.md",
+    }
+
     if reuse_if_exists and _eval_present(rdir) and not force:
-        return StepOutcome(
+        step = StepResult(
             name="eval",
             status="skipped",
-            outputs={"reports_dir": str(rdir / "reports")},
-            notes=["Eval reports already present; skipped (reuse_if_exists=True, force=False)."],
+            decision=ReuseDecision(mode="reuse", reason="Eval slice/stability outputs already exist on disk.", used_manifest=False, forced=False),
+            inputs=inputs,
+            outputs=_artifact_map(expected),
+            notes=["Skipped eval (reuse_if_exists=True, force=False)."],
         )
+        return _finalize_step(rdir, step)
 
     if rec:
-        with rec.step("eval_login_attempt", details={"run_id": run_id, "force": force}):
+        with rec.step("eval", details={"run_id": run_id, "force": force}):
             out = run_login_eval_for_run(cfg, run_id=run_id, force=force)
     else:
         out = run_login_eval_for_run(cfg, run_id=run_id, force=force)
@@ -347,13 +433,15 @@ def step_eval(
     status = getattr(out, "status", "ok") if out is not None else "partial"
     notes = list(getattr(out, "notes", []) or []) if out is not None else ["Eval returned no outputs (unexpected)."]
 
-    return StepOutcome(
+    step = StepResult(
         name="eval",
         status=str(status),
-        outputs={"reports_dir": str(rdir / "reports")},
+        decision=ReuseDecision(mode="compute", reason="Ran eval via eval.runner.run_login_eval_for_run(...).", used_manifest=False, forced=force),
+        inputs=inputs,
+        outputs=_artifact_map(expected),
         notes=notes,
     )
-
+    return _finalize_step(rdir, step)
 
 def _share_present(rdir: Path) -> bool:
     # Evidence + UI bundle are the most important "share" artifacts.
@@ -367,36 +455,52 @@ def _share_present(rdir: Path) -> bool:
 def step_export(
     cfg: Any,
     *,
+    cfg_path: Optional[Path] = None,
     run_id: str,
     rec: Optional[StepRecorder] = None,
     reuse_if_exists: bool = True,
     force: bool = False,
-) -> StepOutcome:
+) -> StepResult:
     """Step 5: export share bundle (summary, exec summary, UI bundle, handover, evidence)."""
     rdir = run_dir_for(Path(cfg.paths.runs_dir), run_id)
     rdir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(cfg, rdir)
 
-    if reuse_if_exists and _share_present(rdir) and not force:
-        return StepOutcome(
-            name="export",
-            status="skipped",
-            outputs={"share_dir": str(rdir / "share")},
-            notes=["Share bundle already present; skipped (reuse_if_exists=True, force=False)."],
-        )
+    cfg_path = cfg_path or Path("<cfg_path_unknown>")
+    inputs = _mk_inputs(
+        cfg_path,
+        cfg,
+        run_id,
+        params={},
+        toggles={"reuse_if_exists": reuse_if_exists, "force": force},
+    )
 
     share_dir = rdir / "share"
-    share_dir.mkdir(parents=True, exist_ok=True)
+    expected = {
+        "share_dir": share_dir,
+        "share_summary_md": share_dir / "summary.md",
+        "share_handover_md": share_dir / "handover.md",
+        "share_ui_bundle_dir": share_dir / "ui_bundle",
+        "share_evidence_dir": share_dir / "evidence",
+        "share_exec_summary_md": share_dir / "exec_summary.md",
+    }
 
-    def _do():
-        # Ensure core summaries exist (best-effort)
+    if reuse_if_exists and _share_present(rdir) and not force:
+        step = StepResult(
+            name="export",
+            status="skipped",
+            decision=ReuseDecision(mode="reuse", reason="Share bundle outputs already exist on disk.", used_manifest=False, forced=False),
+            inputs=inputs,
+            outputs=_artifact_map(expected),
+            notes=["Skipped export (reuse_if_exists=True, force=False)."],
+        )
+        return _finalize_step(rdir, step)
+
+    def _do() -> None:
+        # Keep output surfaces stable; these funcs manage their own overwrites/policies.
         write_ui_summary(cfg, run_id=run_id)
         write_exec_summary(cfg, run_id=run_id)
-
-        # Export UI bundle for this run
-        export_ui_bundle(cfg, run_ids=[run_id], out_dir=share_dir / "ui_bundle", force=force)
-
-        # Handover + evidence
+        export_ui_bundle(cfg, run_id=run_id)
         write_mvp_handover(cfg, run_id=run_id)
         export_evidence_bundle(cfg, run_id=run_id)
 
@@ -406,8 +510,12 @@ def step_export(
     else:
         _do()
 
-    return StepOutcome(
+    step = StepResult(
         name="export",
         status="ok",
-        outputs={"share_dir": str(share_dir)},
+        decision=ReuseDecision(mode="compute", reason="Exported share bundle via ui.* + share.evidence.* helpers.", used_manifest=False, forced=force),
+        inputs=inputs,
+        outputs=_artifact_map(expected),
     )
+    return _finalize_step(rdir, step)
+
