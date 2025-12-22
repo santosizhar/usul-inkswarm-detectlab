@@ -16,6 +16,29 @@ It is written for:
 DetectLab writes artifacts under:
 - `runs/<run_id>/...`
 
+
+### Run ID convention
+
+If you don’t set `run_id`, DetectLab will auto-generate one using a **sequential** convention:
+
+- `<PREFIX>_<NNNN>` (e.g., `RUN_0001`, `RR2_MVP_ZIP_A_0002`)
+- Default: `run_id_prefix="RUN"`, `run_id_width=4`
+- A per-prefix counter is stored at `runs/.run_counters.json` (safe to keep in the repo; it’s just operator state)
+
+You can control the prefix in two ways:
+
+1) Config:
+```yaml
+run:
+  run_id_prefix: RR2_MVP_ZIP_A
+  run_id_width: 4
+```
+
+2) Environment variable (quick operator override):
+```powershell
+$env:INKSWARM_RUN_ID_PREFIX = "RR2_MVP_ZIP_A"
+```
+
 ---
 
 ## 0.5) Get the code (git)

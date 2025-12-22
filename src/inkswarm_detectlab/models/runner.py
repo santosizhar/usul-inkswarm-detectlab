@@ -11,6 +11,11 @@ import numpy as np
 import pandas as pd
 
 from ..config import AppConfig
+from ..config.models import (
+    LogRegBaselineConfig,
+    RFBaselineConfig,
+    HGBBaselineConfig,
+)
 from ..io.paths import run_dir as run_dir_for, dataset_split_basepath, manifest_path
 from ..io.tables import read_auto
 from ..io.manifest import read_manifest, write_manifest
@@ -18,6 +23,7 @@ from ..utils.canonical import canonicalize_df
 from ..utils.hashing import stable_hash_dict
 from ..features.runner import build_login_features_for_run
 from .metrics import choose_threshold_for_fpr, top_thresholds_for_fpr
+from ..synthetic.label_defs import as_markdown_table as _labels_markdown_table
 
 # sklearn is an MVP dependency (D-0004)
 from sklearn.impute import SimpleImputer
@@ -91,22 +97,42 @@ def _select_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
     return X, ys
 
 
-def _fit_logreg(cfg: AppConfig, X: pd.DataFrame, y: np.ndarray) -> Pipeline:
-    c = cfg.baselines.login_attempt.logreg
+def _fit_logreg(
+    cfg: AppConfig,
+    X: pd.DataFrame,
+    y: np.ndarray,
+    *,
+    logreg_cfg: LogRegBaselineConfig | None = None,
+) -> Pipeline:
+    c = logreg_cfg or cfg.baselines.login_attempt.logreg
     class_weight = "balanced" if c.class_weight == "balanced" else None
     pipe = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="constant", fill_value=0.0)),
             ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            ("model", LogisticRegression(C=c.C, max_iter=c.max_iter, class_weight=class_weight, solver="lbfgs")),
+            (
+                "model",
+                LogisticRegression(
+                    C=c.C,
+                    max_iter=c.max_iter,
+                    class_weight=class_weight,
+                    solver="lbfgs",
+                ),
+            ),
         ]
     )
     pipe.fit(X, y)
     return pipe
 
 
-def _fit_rf(cfg: AppConfig, X: pd.DataFrame, y: np.ndarray) -> Pipeline:
-    c = cfg.baselines.login_attempt.rf
+def _fit_rf(
+    cfg: AppConfig,
+    X: pd.DataFrame,
+    y: np.ndarray,
+    *,
+    rf_cfg: RFBaselineConfig | None = None,
+) -> Pipeline:
+    c = rf_cfg or cfg.baselines.login_attempt.rf
     model = RandomForestClassifier(
         n_estimators=c.n_estimators,
         max_depth=c.max_depth,
@@ -213,6 +239,31 @@ def run_login_baselines_for_run(
     if not bcfg.enabled:
         raise ValueError("baselines.login_attempt.enabled is false; nothing to do")
 
+    # Preset support: speed up iteration in notebooks without changing the default behavior.
+    # NOTE: This does NOT change the dataset, splits, or metric definitions.
+    preset = getattr(bcfg, "preset", "standard")
+    logreg_cfg = bcfg.logreg
+    rf_cfg = bcfg.rf
+    hgb_cfg = bcfg.hgb
+    if preset == "fast":
+        # Clamp expensive knobs (but keep user's explicit settings if already smaller).
+        logreg_cfg = logreg_cfg.model_copy(update={"max_iter": min(int(logreg_cfg.max_iter), 200)})
+
+        rf_update: dict[str, Any] = {
+            "n_estimators": min(int(rf_cfg.n_estimators), 100),
+            "min_samples_leaf": max(int(rf_cfg.min_samples_leaf), 2),
+        }
+        # If max_depth is None, set a reasonable cap in fast mode.
+        if rf_cfg.max_depth is None:
+            rf_update["max_depth"] = 16
+        else:
+            rf_update["max_depth"] = min(int(rf_cfg.max_depth), 16)
+        rf_cfg = rf_cfg.model_copy(update=rf_update)
+
+        # HGB is powerful but can be expensive; disable by default in fast mode.
+        if getattr(hgb_cfg, "enabled", False):
+            hgb_cfg = hgb_cfg.model_copy(update={"enabled": False})
+
     out_dir = rdir / "models" / "login_attempt" / "baselines"
     if out_dir.exists() and not force:
         raise FileExistsError("Baselines output already exists. Re-run with --force to overwrite.")
@@ -294,13 +345,21 @@ def run_login_baselines_for_run(
             try:
                 if model_name == "logreg":
                     _log(f"[baselines] fit start label={label} model=logreg")
-                    model = _fit_logreg(cfg, X_train, y_tr)
+                    model = _fit_logreg(cfg, X_train, y_tr, logreg_cfg=logreg_cfg)
                     _log(f"[baselines] fit ok label={label} model=logreg")
                 elif model_name == "rf":
                     _log(f"[baselines] fit start label={label} model=rf")
-                    model = _fit_rf(cfg, X_train, y_tr)
+                    model = _fit_rf(cfg, X_train, y_tr, rf_cfg=rf_cfg)
                     _log(f"[baselines] fit ok label={label} model=rf")
                 elif model_name == "hgb":
+                    if not getattr(hgb_cfg, "enabled", False):
+                        _log(f"[baselines] skip label={label} model=hgb reason=disabled")
+                        results["labels"][label][model_name] = {
+                            "status": "skipped",
+                            "error": "disabled by preset/config",
+                            "meta": {},
+                        }
+                        continue
                     if cfg_path is None:
                         raise ValueError("HGB requested but cfg_path was not provided (needed for subprocess worker).")
                     # Fit in subprocess; then load back for scoring.
@@ -355,12 +414,26 @@ def run_login_baselines_for_run(
             hold_at_train_thr = _metrics_at_threshold(y_hold, s_hold, thr_train.threshold)
 
             # Persist model (for hgb this may already exist; overwrite consistently)
-            model_path = out_dir / f"{label}__{model_name}.joblib"
-            try:
-                joblib.dump(model, model_path)
-            except Exception:
-                # If it was written by a worker and is already there, ignore.
-                pass
+            #
+            # Layout v2 (preferred): <out_dir>/<model_name>/<label>.joblib
+            # Layout v1 (legacy):   <out_dir>/<label>__<model_name>.joblib
+            #
+            # We write BOTH so:
+            # - new runs are easy to browse and keep model artifacts grouped by model
+            # - older tooling remains compatible
+            by_model_dir = out_dir / model_name
+            by_model_dir.mkdir(parents=True, exist_ok=True)
+
+            by_model_path = by_model_dir / f"{label}.joblib"
+            legacy_path = out_dir / f"{label}__{model_name}.joblib"
+
+            # Prefer writing the v2 layout first.
+            for _path in (by_model_path, legacy_path):
+                try:
+                    joblib.dump(model, _path)
+                except Exception:
+                    # If it was written by a worker and is already there, ignore.
+                    pass
 
             entry: dict[str, Any] = {
                 "status": "ok",
@@ -533,6 +606,33 @@ def _render_report(results: dict[str, Any]) -> str:
                     h_rec=float(h.get("recall", 0.0)),
                 )
             )
+    lines.append("")
+
+    # --- Preset + effective hyperparams (helps notebook iteration + debugging)
+    preset = meta.get("preset", "standard")
+    lines.append("## Training preset")
+    lines.append("")
+    lines.append(f"- preset: `{preset}`")
+    if preset == "fast":
+        lines.append("- note: 'fast' is intended for iteration; use 'standard' for final baselines.")
+    for k in [
+        "effective_logreg_max_iter",
+        "effective_rf_n_estimators",
+        "effective_rf_max_depth",
+        "effective_hgb_enabled",
+    ]:
+        if k in meta:
+            lines.append(f"- {k}: {meta.get(k)}")
+    lines.append("")
+
+    # --- Label definitions (dataset context)
+    lines.append("## Label definitions")
+    lines.append("")
+    lines.append(
+        "These labels are generated by the synthetic dataset generator and are **scenario tags**, not real-world ground truth."
+    )
+    lines.append("")
+    lines.append(_labels_markdown_table())
     lines.append("")
 
     lines.append("## Per-label metrics")

@@ -98,7 +98,7 @@ def _write_summary(run_dir: Path, login_df: pd.DataFrame, checkout_df: pd.DataFr
 def generate_raw(cfg: AppConfig, run_id: str | None = None) -> tuple[Path, dict[str, Any]]:
     """Generate raw SKYNET tables and write a partial manifest."""
     cfg_hash, cfg_hash8 = _config_fingerprint(cfg)
-    rid = run_id or cfg.run.run_id or make_run_id(cfg_hash8)
+    rid = run_id or cfg.run.run_id or make_run_id(cfg_hash8, runs_dir=cfg.paths.runs_dir, prefix=cfg.run.run_id_prefix, width=cfg.run.run_id_width)
     rdir = run_dir_for(cfg.paths.runs_dir, rid)
     raw_dir(rdir).mkdir(parents=True, exist_ok=True)
 

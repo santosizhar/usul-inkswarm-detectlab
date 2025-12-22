@@ -39,3 +39,13 @@ detectlab baselines run -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0
 ```bash
 detectlab dataset parquetify -c configs/skynet_smoke.yaml --run-id RUN_SAMPLE_SMOKE_0001 --force
 ```
+
+## Cache maintenance (optional)
+
+DetectLab caches computed feature matrices to speed up repeated baseline training/evaluation.
+
+- Default location: `runs/_cache/features/<feature_key>/`
+- Inspect:
+  - `detectlab cache list`
+- Prune old entries (destructive):
+  - `detectlab cache prune --older-than-days 30 --yes`

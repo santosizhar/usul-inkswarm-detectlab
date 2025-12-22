@@ -50,58 +50,70 @@ def _safe_load_model(path: Path) -> tuple[Any | None, str | None]:
 
 
 def _discover_baseline_artifacts(
-    model_dir: Path, expected_models: list[str]
+    model_dir: Path, expected_models: tuple[str, ...] = ("logreg", "rf")
 ) -> tuple[dict[str, dict[str, Path]], list[str]]:
-    """Discover baseline artifacts saved as `<label>__<model>.joblib` under `model_dir`.
+    """Discover baseline artifacts under `model_dir`.
+
+    Supported layouts (under `<model_dir>/baselines/`):
+      - v2 (preferred): `<model>/<label>.joblib`
+      - v1 (legacy):   `<label>__<model>.joblib`
 
     Returns:
-      mapping: model_name -> label -> Path
-      notes: human-readable notes/warnings (empty if everything looks good)
+      (artifacts, notes)
+
+      artifacts:
+        dict[model_name][label_name] -> joblib path
+
+      notes:
+        list of warnings and missing-artifact messages.
     """
+    baselines_dir = model_dir / "baselines"
     notes: list[str] = []
+
+    # Always return keys for expected_models to make downstream logic simpler.
     artifacts: dict[str, dict[str, Path]] = {m: {} for m in expected_models}
 
-    if not model_dir.exists():
-        return artifacts, [f"Baselines directory not found: {model_dir}"]
+    if not baselines_dir.exists():
+        notes.append(f"Missing baselines directory: {baselines_dir}")
+        return artifacts, notes
 
-    joblibs = sorted(model_dir.glob("**/*.joblib"))
-    if not joblibs:
-        return artifacts, [f"No .joblib artifacts found under: {model_dir}"]
-
-    for p in joblibs:
+    for p in sorted(baselines_dir.glob("**/*.joblib")):
         stem = p.stem
 
-        # Canonical layout: `<label>__<model>` (optionally with extra suffix after model)
+        # Layout v2: <model>/<label>.joblib (model is parent directory name)
+        if p.parent.name in expected_models and p.parent != baselines_dir:
+            model_name = p.parent.name
+            label_name = stem
+            if label_name in artifacts[model_name]:
+                notes.append(
+                    f"Duplicate artifact for model='{model_name}', label='{label_name}'. "
+                    f"Keeping {artifacts[model_name][label_name]}, ignoring {p}"
+                )
+            else:
+                artifacts[model_name][label_name] = p
+            continue
+
+        # Layout v1 legacy: <label>__<model>.joblib (usually directly under baselines_dir)
         if "__" in stem:
-            left, right = stem.split("__", 1)
-
-            matched_model: str | None = None
-            for m in expected_models:
-                if right == m or right.startswith(m + "_") or right.startswith(m + "__"):
-                    matched_model = m
-                    break
-
-            if matched_model is not None:
-                artifacts.setdefault(matched_model, {})
-                # Prefer first artifact if duplicates exist; keep a note.
-                if left in artifacts[matched_model]:
+            label_name, model_name = stem.rsplit("__", 1)
+            if model_name in expected_models and label_name:
+                if label_name in artifacts[model_name]:
                     notes.append(
-                        f"Duplicate artifact for model='{matched_model}', label='{left}'. Keeping {artifacts[matched_model][left]}, ignoring {p}"
+                        f"Duplicate artifact for model='{model_name}', label='{label_name}'. "
+                        f"Keeping {artifacts[model_name][label_name]}, ignoring {p}"
                     )
                 else:
-                    artifacts[matched_model][left] = p
+                    artifacts[model_name][label_name] = p
                 continue
 
-        # If we reach here, file name doesn't match the canonical convention.
-        # Keep it as a note (but don't fail hard).
-        notes.append(f"Unrecognized baseline artifact name (ignored): {p.name}")
+        notes.append(f"Unrecognized baseline artifact filename: {p}")
 
-    # Summarize missing models (no artifacts for that model)
     for m in expected_models:
-        if not artifacts.get(m):
-            notes.append(f"No artifacts found for expected baseline model '{m}' in {model_dir}")
+        if not artifacts[m]:
+            notes.append(f"Missing model artifacts for model='{m}' under {baselines_dir}")
 
     return artifacts, notes
+
 
 def _predict_scores(model: Any, X: pd.DataFrame) -> np.ndarray:
     # Works for sklearn pipelines + estimators

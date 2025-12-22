@@ -37,3 +37,28 @@ Additional stakeholder-friendly outputs:
 Baseline training is **fail-soft** for MVP usability:
 - If at least one baseline succeeds, artifacts are still written and a warning is emitted.
 - If all requested baselines fail, the command returns an error.
+
+## Artifact layout
+Baseline model artifacts are written in **two layouts** for compatibility:
+
+- **Layout v2 (preferred):** `runs/<run_id>/models/<task>/baselines/<model>/<label>.joblib`
+- **Layout v1 (legacy):** `runs/<run_id>/models/<task>/baselines/<label>__<model>.joblib`
+
+The evaluator and report generator will discover **either** layout.
+
+### Normalizing older runs (optional)
+If you have older runs that only contain the legacy flat files, you can create the v2 folder layout by copying artifacts:
+
+```bash
+python tools/normalize_baselines_layout.py --baselines-dir runs/<run_id>/models/login_attempt/baselines
+```
+
+Add `--dry-run` to preview actions, and `--remove-legacy` to delete legacy files after copying.
+
+### Searching the repo on Windows (no ripgrep)
+If you don't have `rg` (ripgrep) installed, you can use PowerShell's built-in `Select-String`:
+
+```powershell
+Select-String -Path "src\**\*.py" -Pattern "baselines" -List
+Select-String -Path "src\**\*.py" -Pattern "Missing model artifact" -List
+```

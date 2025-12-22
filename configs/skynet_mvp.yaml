@@ -45,6 +45,8 @@ features:
 baselines:
   login_attempt:
     enabled: true
+    # 'standard' for full evaluation; 'fast' for quicker notebook iterations.
+    preset: standard
     models:
     - logreg
     - rf

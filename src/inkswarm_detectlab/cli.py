@@ -56,6 +56,7 @@ features_app = typer.Typer(add_completion=False, help="Feature building")
 baselines_app = typer.Typer(add_completion=False, help="Baseline models")
 ui_app = typer.Typer(add_completion=False, help="Shareable UI bundles (static HTML)")
 eval_app = typer.Typer(add_completion=False, help="Evaluation diagnostics (slices + stability)")
+cache_app = typer.Typer(add_completion=False, help="Inspect and maintain local caches")
 
 
 app.add_typer(schemas_app, name="schemas")
@@ -67,6 +68,7 @@ app.add_typer(features_app, name="features")
 app.add_typer(baselines_app, name="baselines")
 app.add_typer(ui_app, name="ui")
 app.add_typer(eval_app, name="eval")
+app.add_typer(cache_app, name="cache")
 
 
 
@@ -380,3 +382,64 @@ def eval_run(
     if out.notes:
         typer.echo("Notes:")
         for n in out.notes: typer.echo(f"- {n}")
+
+
+@cache_app.command("list")
+def cache_list(
+    cfg_path: Optional[Path] = typer.Option(None, "--config", help="Config path (to resolve cache_dir)."),
+    cache_dir: Optional[Path] = typer.Option(None, "--cache-dir", help="Direct path to cache root (overrides --config)."),
+):
+    """List feature-cache entries (newest first)."""
+    from .cache.ops import iter_feature_cache_entries
+
+    if cache_dir is None:
+        if cfg_path is None:
+            raise typer.BadParameter("Provide --cache-dir or --config")
+        cfg = load_config(cfg_path)
+        cache_dir = Path(cfg.paths.cache_dir)
+
+    entries = iter_feature_cache_entries(Path(cache_dir))
+    if not entries:
+        typer.echo("No feature-cache entries found.")
+        return
+
+    typer.echo("feature_key\tcreated_at\tlast_used_at\tcomplete\tsize_mb")
+    for e in entries:
+        created = e.created_at.isoformat().replace("+00:00", "Z") if e.created_at else ""
+        last = e.last_used_at.isoformat().replace("+00:00", "Z") if e.last_used_at else ""
+        size_mb = f"{(e.size_bytes / (1024*1024)):.2f}"
+        typer.echo(f"{e.feature_key}\t{created}\t{last}\t{int(e.complete)}\t{size_mb}")
+
+
+@cache_app.command("prune")
+def cache_prune(
+    cfg_path: Optional[Path] = typer.Option(None, "--config", help="Config path (to resolve cache_dir)."),
+    cache_dir: Optional[Path] = typer.Option(None, "--cache-dir", help="Direct path to cache root (overrides --config)."),
+    older_than_days: int = typer.Option(30, "--older-than-days", help="Delete entries older than this many days."),
+    keep_latest: int = typer.Option(10, "--keep-latest", help="Always keep N newest entries."),
+    yes: bool = typer.Option(False, "--yes", help="Actually delete. Without --yes, this is a dry run."),
+):
+    """Prune feature-cache entries (safe-by-default)."""
+    from .cache.ops import prune_feature_cache
+
+    if cache_dir is None:
+        if cfg_path is None:
+            raise typer.BadParameter("Provide --cache-dir or --config")
+        cfg = load_config(cfg_path)
+        cache_dir = Path(cfg.paths.cache_dir)
+
+    res = prune_feature_cache(
+        Path(cache_dir),
+        older_than_days=older_than_days,
+        keep_latest=keep_latest,
+        dry_run=not yes,
+    )
+
+    if not res.deleted:
+        typer.echo("Nothing to prune.")
+        return
+
+    mode = "DRY_RUN" if not yes else "DELETED"
+    typer.echo(f"{mode}: {len(res.deleted)} entries")
+    for p in res.deleted:
+        typer.echo(f"- {p}")
