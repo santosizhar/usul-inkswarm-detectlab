@@ -48,6 +48,61 @@ def _safe_load_model(path: Path) -> tuple[Any | None, str | None]:
         return None, f"{type(e).__name__}: {e}"
 
 
+
+def _discover_baseline_artifacts(
+    model_dir: Path, expected_models: list[str]
+) -> tuple[dict[str, dict[str, Path]], list[str]]:
+    """Discover baseline artifacts saved as `<label>__<model>.joblib` under `model_dir`.
+
+    Returns:
+      mapping: model_name -> label -> Path
+      notes: human-readable notes/warnings (empty if everything looks good)
+    """
+    notes: list[str] = []
+    artifacts: dict[str, dict[str, Path]] = {m: {} for m in expected_models}
+
+    if not model_dir.exists():
+        return artifacts, [f"Baselines directory not found: {model_dir}"]
+
+    joblibs = sorted(model_dir.glob("**/*.joblib"))
+    if not joblibs:
+        return artifacts, [f"No .joblib artifacts found under: {model_dir}"]
+
+    for p in joblibs:
+        stem = p.stem
+
+        # Canonical layout: `<label>__<model>` (optionally with extra suffix after model)
+        if "__" in stem:
+            left, right = stem.split("__", 1)
+
+            matched_model: str | None = None
+            for m in expected_models:
+                if right == m or right.startswith(m + "_") or right.startswith(m + "__"):
+                    matched_model = m
+                    break
+
+            if matched_model is not None:
+                artifacts.setdefault(matched_model, {})
+                # Prefer first artifact if duplicates exist; keep a note.
+                if left in artifacts[matched_model]:
+                    notes.append(
+                        f"Duplicate artifact for model='{matched_model}', label='{left}'. Keeping {artifacts[matched_model][left]}, ignoring {p}"
+                    )
+                else:
+                    artifacts[matched_model][left] = p
+                continue
+
+        # If we reach here, file name doesn't match the canonical convention.
+        # Keep it as a note (but don't fail hard).
+        notes.append(f"Unrecognized baseline artifact name (ignored): {p.name}")
+
+    # Summarize missing models (no artifacts for that model)
+    for m in expected_models:
+        if not artifacts.get(m):
+            notes.append(f"No artifacts found for expected baseline model '{m}' in {model_dir}")
+
+    return artifacts, notes
+
 def _predict_scores(model: Any, X: pd.DataFrame) -> np.ndarray:
     # Works for sklearn pipelines + estimators
     if hasattr(model, "predict_proba"):
@@ -291,31 +346,34 @@ def run_login_eval_for_run(cfg: AppConfig, *, run_id: str, force: bool = False) 
 
     # Load trained models (logreg + rf)
     model_dir = rdir / "models" / "login_attempt" / "baselines"
-    model_paths = {p.stem: p for p in model_dir.glob("*.joblib")}
-    # also accept known names
-    wanted = list(cfg.baselines.login_attempt.models)
-    models: dict[str, Any] = {}
-    for name in wanted:
-        # find file that starts with name
-        cand = None
-        for stem, p in model_paths.items():
-            if stem.startswith(name + "_") or stem == name:
-                cand = p
-                break
-        if cand is None:
-            status = "partial"
-            notes.append(f"Missing model artifact for '{name}' under {model_dir}")
-            continue
-        mobj, merr = _safe_load_model(cand)
-        if mobj is None:
-            status = "partial"
-            notes.append(f"Failed to load model '{name}' from {cand} ({merr})")
-            continue
-        models[name] = mobj
+    expected_models = list(cfg.baselines.login_attempt.models)
 
-    # If we can't score, still write placeholder reports
-    generated_at = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    meta = {"run_id": run_id, "generated_at_utc": generated_at, "primary_split": PRIMARY_SPLIT}
+    model_artifacts, disc_notes = _discover_baseline_artifacts(model_dir, expected_models)
+    notes.extend(disc_notes)
+
+    # Load models into a nested mapping: model_name -> label -> model_object
+    models: dict[str, dict[str, Any]] = {}
+    for model_name, label_map in model_artifacts.items():
+        loaded_labels: dict[str, Any] = {}
+        for label, p in label_map.items():
+            mobj, err = _safe_load_model(p)
+            if mobj is None:
+                status = "partial"
+                notes.append(f"Failed to load model artifact '{label}__{model_name}' at {p}: {err}")
+                continue
+            loaded_labels[label] = mobj
+
+        if loaded_labels:
+            models[model_name] = loaded_labels
+
+    if not models:
+        status = "partial"
+        notes.append(f"No loadable baseline model artifacts found under: {model_dir}")
+    else:
+        missing_models = [m for m in expected_models if m not in models]
+        if missing_models:
+            status = "partial"
+            notes.append(f"Missing expected baseline model(s) under {model_dir}: {missing_models}")
 
     slices_payload: dict[str, Any] = {"status": status, "meta": meta, "models": {}, "notes": notes[:]}
 
@@ -333,7 +391,7 @@ def run_login_eval_for_run(cfg: AppConfig, *, run_id: str, force: bool = False) 
             feat_df.set_index("event_id", inplace=True, drop=False)
 
         # Compute per split scored matrices
-        for model_name, model in models.items():
+        for model_name, label_models in models.items():
             slices_payload["models"].setdefault(model_name, {"labels": {}})
             stability_payload["models"].setdefault(model_name, {"labels": {}})
             for label in LABEL_COLS:
@@ -341,6 +399,12 @@ def run_login_eval_for_run(cfg: AppConfig, *, run_id: str, force: bool = False) 
                 if "train" not in splits or label not in splits["train"].columns:
                     status = "partial"
                     notes.append(f"Label column missing in dataset for {label}; skipping")
+                    continue
+
+                model = label_models.get(label)
+                if model is None:
+                    status = "partial"
+                    notes.append(f"Missing baseline artifact for model='{model_name}', label='{label}' in {model_dir}")
                     continue
 
                 # Get train threshold for target fpr
