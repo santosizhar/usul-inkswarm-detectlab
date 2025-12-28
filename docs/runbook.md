@@ -13,8 +13,19 @@ It is written for:
 - Python **3.12+**
 - Disk space: a few hundred MB for multiple runs.
 
+Dependency hygiene:
+- Pinned environment snapshot: `requirements.lock`
+- Drift check: `tools/dependency_check.sh` (pip check + outdated list)
+
 DetectLab writes artifacts under:
 - `runs/<run_id>/...`
+
+## Release readiness acceptance criteria
+- `detectlab doctor` succeeds (Python/platform + pandas/sklearn/pyarrow reported; non-zero exit on missing deps)
+- `detectlab sanity --no-tiny-run` passes (compile/import checks only)
+- Smoke pipeline completes with manifests present: `runs/<RUN_ID>/manifest.json` populated
+- UI export writes bundle: `runs/<RUN_ID>/share/ui_bundle/index.html`
+- Optional tiny run (if enabled) leaves caches clean after `tools/cache_prune.sh`
 
 
 ### Run ID convention
@@ -109,6 +120,7 @@ Expected outputs (high level):
 - `runs/RUN_SMOKE_001/models/.../metrics.json`
 - `runs/RUN_SMOKE_001/reports/summary.md`
 - `runs/RUN_SMOKE_001/reports/eval_*_login_attempt.md`
+- Manifest + observability: `runs/RUN_SMOKE_001/manifest.json` captures step metadata and outputs; run logs live under `runs/RUN_SMOKE_001/logs/`.
 
 Optional: export a UI bundle for this run into the run folder:
 
