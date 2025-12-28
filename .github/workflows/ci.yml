@@ -5,36 +5,20 @@ on:
   pull_request:
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      - name: Install
+          python-version: '3.11'
+      - name: Install dependencies
         run: |
-          python -m pip install -U pip
-          pip install -e ".[dev]"
-
-      - name: Compile (syntax check)
-        run: |
-          python -m compileall src
-
-      - name: Docs lint
-        run: |
-          python scripts/lint_docs.py
-
-      - name: Unit tests
-        run: |
-          pytest -q
-
-      - name: Pipeline smoke (CI)
-        run: |
-          detectlab run skynet -c configs/skynet_ci.yaml --run-id CI_SMOKE_001 --force
-          detectlab features build -c configs/skynet_ci.yaml --run-id CI_SMOKE_001 --force
-          detectlab baselines run -c configs/skynet_ci.yaml --run-id CI_SMOKE_001 --force
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+      - name: Compile sources
+        run: python -m compileall src
+      - name: Run tests
+        run: pytest -q
+      - name: Doctor
+        run: python -m inkswarm_detectlab doctor

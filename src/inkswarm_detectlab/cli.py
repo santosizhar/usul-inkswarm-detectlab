@@ -6,6 +6,7 @@ from typing import Optional
 import typer
 import yaml
 
+from .diagnostics import collect_diagnostics, render_diagnostics
 from .schemas import list_schemas, get_schema
 from .config import load_config
 from .pipeline import generate_raw, build_dataset, run_all
@@ -75,8 +76,10 @@ app.add_typer(cache_app, name="cache")
 @app.command("doctor")
 def doctor():
     """Print environment diagnostics (useful for crash triage / CI baselines)."""
-    import sys
-    import platform
+    snapshot = collect_diagnostics()
+    render_diagnostics(snapshot, typer.echo)
+    if snapshot.errors:
+        raise typer.Exit(code=2)
 
 
 @app.command("sanity")
@@ -89,9 +92,12 @@ def sanity(
     ),
     run_id: Optional[str] = typer.Option(None, "--run-id", help="Optional run id override."),
     tiny_run: bool = typer.Option(
-        True,
+        False,
         "--tiny-run/--no-tiny-run",
-        help="If enabled, runs a small end-to-end wiring test using the step runner (may write artifacts under runs/).",
+        help=(
+            "If enabled, runs a small end-to-end wiring test using the step runner (may write artifacts under runs/). "
+            "Disabled by default to keep CI runs side-effect free."
+        ),
     ),
     force: bool = typer.Option(False, "--force", help="Force overwrite for steps that support it."),
 ):
@@ -156,37 +162,10 @@ def sanity(
 
     typer.echo(rec.to_markdown(title="Sanity tiny-run steps"))
 
-    typer.echo("DetectLab doctor")
-    typer.echo(f"- python: {sys.version.replace(chr(10), ' ')}")
-    typer.echo(f"- platform: {platform.platform()}")
-    try:
-        import sklearn  # type: ignore
-
-        typer.echo(f"- sklearn: {getattr(sklearn, '__version__', None)}")
-    except Exception:
-        typer.echo("- sklearn: <unavailable>")
-    try:
-        import pandas as pd  # type: ignore
-
-        typer.echo(f"- pandas: {getattr(pd, '__version__', None)}")
-    except Exception:
-        typer.echo("- pandas: <unavailable>")
-    try:
-        import pyarrow as pa  # type: ignore
-
-        typer.echo(f"- pyarrow: {getattr(pa, '__version__', None)}")
-    except Exception:
-        typer.echo("- pyarrow: <unavailable>")
-    try:
-        from threadpoolctl import threadpool_info  # type: ignore
-
-        info = threadpool_info()
-        typer.echo(f"- threadpools: {len(info)}")
-        for i, row in enumerate(info[:10]):
-            lib = row.get('internal_api') or row.get('user_api') or 'unknown'
-            typer.echo(f"  - {i+1}: {lib} ({row.get('num_threads')})")
-    except Exception:
-        typer.echo("- threadpools: <unavailable>")
+    snapshot = collect_diagnostics()
+    render_diagnostics(snapshot, typer.echo)
+    if snapshot.errors:
+        raise typer.Exit(code=2)
 
 
 def _resolve_config(arg: Optional[Path], opt: Optional[Path]) -> Path:
@@ -240,6 +219,16 @@ def config_show(path: Path):
     cfg = load_config(path)
     d = cfg.model_dump()
     typer.echo(yaml.safe_dump(d, sort_keys=False))
+
+
+@config_app.command("check-parquet")
+def config_check_parquet():
+    """Verify Parquet dependency availability (fail-closed for RR)."""
+    try:
+        _require_pyarrow()
+    except typer.Exit:
+        raise
+    typer.echo("pyarrow available: Parquet support verified")
 
 
 @synthetic_app.command("skynet")
