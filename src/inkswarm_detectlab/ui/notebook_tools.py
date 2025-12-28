@@ -12,12 +12,25 @@ from pathlib import Path
 
 
 def find_run_dir(root: str | Path, run_id: str) -> Path:
-    """Return <root>/runs/<run_id> (or raise FileNotFoundError)."""
+    """Return the run directory for run_id.
+
+    Accepts either:
+    - root = project root  -> <root>/runs/<run_id>
+    - root = runs dir path -> <root>/<run_id>
+    """
     root_p = Path(root)
+
+    # If caller passed runs_dir (commonly "runs"), prefer <runs_dir>/<run_id>
+    direct = root_p / run_id
+    if direct.exists():
+        return direct
+
+    # Otherwise treat root as project root and look under runs/
     p = root_p / "runs" / run_id
-    if not p.exists():
-        raise FileNotFoundError(f"Run dir not found: {p}")
-    return p
+    if p.exists():
+        return p
+
+    raise FileNotFoundError(f"Run dir not found: {direct} or {p}")
 
 
 def print_run_tree(run_dir: str | Path) -> None:

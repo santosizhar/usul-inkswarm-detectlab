@@ -78,6 +78,84 @@ def doctor():
     import sys
     import platform
 
+
+@app.command("sanity")
+def sanity(
+    config: Path = typer.Option(
+        Path("configs/skynet_smoke.yaml"),
+        "--config",
+        "-c",
+        help="Config YAML (defaults to configs/skynet_smoke.yaml).",
+    ),
+    run_id: Optional[str] = typer.Option(None, "--run-id", help="Optional run id override."),
+    tiny_run: bool = typer.Option(
+        True,
+        "--tiny-run/--no-tiny-run",
+        help="If enabled, runs a small end-to-end wiring test using the step runner (may write artifacts under runs/).",
+    ),
+    force: bool = typer.Option(False, "--force", help="Force overwrite for steps that support it."),
+):
+    """Sanity check for RR: compile + import + (optional) tiny end-to-end run.
+
+    This is intended to catch obvious breakages quickly without requiring a full RR run.
+    """
+    import compileall
+
+    typer.echo("DetectLab sanity")
+
+    # 1) compileall (fail-closed)
+    try:
+        ok = compileall.compile_dir("src", quiet=1)
+    except Exception as e:  # noqa: BLE001
+        typer.echo(f"[compileall] ERROR: {type(e).__name__}: {e}")
+        raise typer.Exit(code=1)
+    if not ok:
+        typer.echo("[compileall] ERROR: compileall reported failures")
+        raise typer.Exit(code=1)
+    typer.echo("[compileall] OK")
+
+    # 2) import checks (cheap)
+    try:
+        from .ui.step_runner import resolve_run_id, wire_check, step_dataset, step_features, step_baselines, step_eval, step_export  # noqa: F401,E501
+        from .ui.steps import StepRecorder  # noqa: F401
+    except Exception as e:  # noqa: BLE001
+        typer.echo(f"[imports] ERROR: {type(e).__name__}: {e}")
+        raise typer.Exit(code=1)
+    typer.echo("[imports] OK")
+
+    if not tiny_run:
+        typer.echo("[tiny-run] skipped")
+        return
+
+    # 3) tiny end-to-end using the step runner (best-effort, but fail-closed on exceptions)
+    from .ui.step_runner import resolve_run_id, wire_check, step_dataset, step_features, step_baselines, step_eval, step_export
+    from .ui.steps import StepRecorder
+
+    cfg, rid = resolve_run_id(config, run_id=run_id)
+    typer.echo(f"[tiny-run] run_id={rid}")
+
+    check = wire_check(config, run_id=rid)
+    typer.echo(f"[tiny-run] run_dir={check['paths']['run_dir']}")
+
+    rec = StepRecorder()
+    # Keep it cheap: reuse_if_exists=True and shared feature cache enabled by default.
+    step_dataset(cfg, cfg_path=config, run_id=rid, rec=rec, reuse_if_exists=True, force=force)
+    step_features(
+        cfg,
+        cfg_path=config,
+        run_id=rid,
+        rec=rec,
+        reuse_if_exists=True,
+        force=force,
+        use_shared_feature_cache=True,
+        write_shared_feature_cache=True,
+    )
+    step_baselines(cfg, cfg_path=config, run_id=rid, rec=rec, reuse_if_exists=True, force=force)
+    step_eval(cfg, cfg_path=config, run_id=rid, rec=rec, reuse_if_exists=True, force=force)
+    step_export(cfg, cfg_path=config, run_id=rid, rec=rec, reuse_if_exists=True, force=force)
+
+    typer.echo(rec.to_markdown(title="Sanity tiny-run steps"))
+
     typer.echo("DetectLab doctor")
     typer.echo(f"- python: {sys.version.replace(chr(10), ' ')}")
     typer.echo(f"- platform: {platform.platform()}")

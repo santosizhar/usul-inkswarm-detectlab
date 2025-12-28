@@ -328,7 +328,12 @@ def run_login_eval_for_run(cfg: AppConfig, *, run_id: str, force: bool = False) 
     stability_json = out_reports / "eval_stability_login_attempt.json"
     stability_md = out_reports / "eval_stability_login_attempt.md"
 
+
+    # Always initialize meta early so partial / missing-artifact paths never crash.
+    meta: dict[str, Any] = {"run_id": run_id, "event": "login_attempt"}
+
     if not force and slices_json.exists() and stability_json.exists():
+
         return EvalOutputs("ok", slices_json, slices_md if slices_md.exists() else None, stability_json, stability_md if stability_md.exists() else None, [])
 
     notes: list[str] = []

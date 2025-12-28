@@ -95,6 +95,21 @@ Zip the share package:
 
 ---
 
+
+---
+
+## RR sanity (quick validation)
+
+Use this when you want a fast fail-closed check that the code compiles, imports, and (optionally) can execute a tiny end-to-end run.
+
+```bash
+# compile + import checks only (no artifacts)
+detectlab sanity --no-tiny-run
+
+# tiny end-to-end (writes under runs/)
+detectlab sanity -c configs/skynet_smoke.yaml --run-id SANITY_SMOKE_0001 --force
+```
+
 ## Code Freeze
 
 - Latest: `CODE_FREEZE__CF-0004.md`  

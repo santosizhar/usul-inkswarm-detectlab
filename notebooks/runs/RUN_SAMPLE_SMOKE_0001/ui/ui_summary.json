@@ -1,0 +1,20 @@
+{
+  "artifacts": {
+    "run_summary_md": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\summary.md"
+  },
+  "baselines": {},
+  "eval": {},
+  "generated_at_utc": "2025-12-22T23:07:45.410022Z",
+  "notes": [
+    "Baselines metrics not found (run may be pre-baselines or baselines failed)."
+  ],
+  "run_id": "RUN_SAMPLE_SMOKE_0001",
+  "schema_version": 1,
+  "signature": {
+    "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+    "github_sha": null,
+    "schema_version": "v1",
+    "seed": 1337
+  },
+  "timezone": "America/Argentina/Buenos_Aires"
+}

@@ -266,7 +266,19 @@ def run_login_baselines_for_run(
 
     out_dir = rdir / "models" / "login_attempt" / "baselines"
     if out_dir.exists() and not force:
-        raise FileExistsError("Baselines output already exists. Re-run with --force to overwrite.")
+        metrics_path = out_dir / "metrics.json"
+        if metrics_path.exists():
+            # Idempotent behavior for notebooks / RR replays:
+            # if the baselines are already present, just return the existing metrics.
+            try:
+                existing = json.loads(metrics_path.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                existing = {"status": "ok", "note": "metrics.json unreadable; baselines dir exists"}
+            return rdir, existing
+        raise FileExistsError(
+            "Baselines output already exists but metrics.json is missing. "
+            "Re-run with --force to overwrite, or delete runs/<run_id>/models/login_attempt/baselines."
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     logs_dir = rdir / "logs"
@@ -426,6 +438,8 @@ def run_login_baselines_for_run(
 
             by_model_path = by_model_dir / f"{label}.joblib"
             legacy_path = out_dir / f"{label}__{model_name}.joblib"
+            # Always define model_path used in metrics entries
+            model_path = by_model_path
 
             # Prefer writing the v2 layout first.
             for _path in (by_model_path, legacy_path):
@@ -434,6 +448,11 @@ def run_login_baselines_for_run(
                 except Exception:
                     # If it was written by a worker and is already there, ignore.
                     pass
+
+            # Path we record for this baseline model (prefer v2 layout)
+            model_path = by_model_path
+            if not model_path.exists() and legacy_path.exists():
+                model_path = legacy_path
 
             entry: dict[str, Any] = {
                 "status": "ok",
@@ -563,7 +582,6 @@ def run_login_baselines_for_run(
         raise RuntimeError("All baseline fits failed. See runs/<run_id>/logs/baselines.log for details.")
 
     return rdir, results
-
 
 def _render_report(results: dict[str, Any]) -> str:
     lines: list[str] = []

@@ -98,9 +98,27 @@ class StepRecorder:
                 + (f" error={ev.error}" if ev.error else "")
             )
 
-    def to_rows(self) -> List[Dict[str, Any]]:
+    def to_rows(self, *, latest_per_step: bool = False) -> List[Dict[str, Any]]:
+        """Return recorded step events as rows.
+
+        latest_per_step:
+            If True, collapse multiple events for the same step name and keep only the latest.
+            Useful in notebooks where steps may be retried after a failure.
+        """
         rows: List[Dict[str, Any]] = []
-        for ev in self.events:
+
+        if latest_per_step:
+            latest: Dict[str, StepEvent] = {}
+            order: List[str] = []
+            for ev in self.events:
+                if ev.name not in latest:
+                    order.append(ev.name)
+                latest[ev.name] = ev
+            events = [latest[name] for name in order]
+        else:
+            events = list(self.events)
+
+        for ev in events:
             rows.append(
                 {
                     "step": ev.name,
@@ -114,10 +132,27 @@ class StepRecorder:
             )
         return rows
 
-    def to_markdown(self, title: str = "Step summary") -> str:
-        rows = self.to_rows()
+    def to_markdown(self, title: str = "Step summary", *, latest_per_step: bool = True) -> str:
+        """Render a small markdown table for step outcomes.
+
+        By default, shows only the latest attempt per step.
+        """
+        rows = self.to_rows(latest_per_step=latest_per_step)
         if not rows:
             return f"### {title}\n\n(no steps recorded)\n"
+
+        headers = ["step", "status", "duration_s", "details"]
+        lines = [
+            f"### {title}",
+            "",
+            "| " + " | ".join(headers) + " |",
+            "|" + "|".join(["---"] * len(headers)) + "|",
+        ]
+        for r in rows:
+            vals = [str(r.get(h, "") or "") for h in headers]
+            lines.append("| " + " | ".join(vals) + " |")
+        lines.append("")
+        return "\n".join(lines)
 
         # Simple markdown table (no external deps)
         headers = ["step", "status", "duration_s", "details"]

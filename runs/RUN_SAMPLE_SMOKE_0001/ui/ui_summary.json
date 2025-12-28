@@ -1,0 +1,871 @@
+{
+  "artifacts": {
+    "baseline_report_md": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\baselines_login_attempt.md",
+    "run_summary_md": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\summary.md"
+  },
+  "baselines": {
+    "login_attempt": {
+      "labels": {
+        "label_replicators": {
+          "logreg": {
+            "meta": {},
+            "model_path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\label_replicators__logreg.joblib",
+            "status": "ok",
+            "time_eval": {
+              "fpr": 0.015544041450777202,
+              "pr_auc": 0.021186095752494215,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.46927726850006646,
+              "threshold_used": 0.8549235605957538
+            },
+            "top_features": [
+              {
+                "feature": "ip_7d__challenge_cnt",
+                "weight": -0.7323018483683988
+              },
+              {
+                "feature": "ip_6h__support_contacted_cnt",
+                "weight": -0.6749604879554881
+              },
+              {
+                "feature": "ip_7d__lockout_cnt",
+                "weight": 0.5901703185133695
+              },
+              {
+                "feature": "ip_7d__uniq_device_fingerprint_hash_cnt",
+                "weight": -0.5487794133655249
+              },
+              {
+                "feature": "ip_7d__uniq_user_id_cnt",
+                "weight": -0.5487794133655249
+              },
+              {
+                "feature": "ip_24h__failure_rate",
+                "weight": 0.5445624367721441
+              },
+              {
+                "feature": "ip_7d__success_rate",
+                "weight": -0.5353102356216703
+              },
+              {
+                "feature": "ip_6h__support_handle_seconds_sum",
+                "weight": 0.522662778565055
+              },
+              {
+                "feature": "ip_7d__failure_rate",
+                "weight": -0.5172633902779319
+              },
+              {
+                "feature": "ip_24h__success_rate",
+                "weight": 0.4832999901210954
+              },
+              {
+                "feature": "ip_24h__uniq_user_id_cnt",
+                "weight": 0.42284739538942173
+              },
+              {
+                "feature": "ip_24h__uniq_device_fingerprint_hash_cnt",
+                "weight": 0.4228473953894204
+              },
+              {
+                "feature": "ip_6h__support_wait_seconds_sum",
+                "weight": 0.3739345131918174
+              },
+              {
+                "feature": "ip_7d__support_wait_seconds_sum",
+                "weight": -0.37234917057384714
+              },
+              {
+                "feature": "user_7d__lockout_cnt",
+                "weight": -0.3043813228197456
+              },
+              {
+                "feature": "device_7d__lockout_cnt",
+                "weight": -0.3043813228197456
+              },
+              {
+                "feature": "ip_24h__challenge_cnt",
+                "weight": 0.3042145636434765
+              },
+              {
+                "feature": "ip_24h__lockout_cnt",
+                "weight": 0.2709807277598482
+              },
+              {
+                "feature": "ip_24h__support_handle_seconds_sum",
+                "weight": -0.262661073947338
+              },
+              {
+                "feature": "device_1h__challenge_rate",
+                "weight": -0.2593960491117343
+              }
+            ],
+            "train": {
+              "fpr": 0.009958401613513173,
+              "pr_auc": 0.05084573823913924,
+              "precision": 0.04819277108433735,
+              "recall": 0.019138755980861243,
+              "threshold_for_fpr": 0.8549235605957538,
+              "threshold_table_top3": [
+                {
+                  "fpr": 0.009958401613513173,
+                  "precision": 0.04819277108433735,
+                  "recall": 0.019138755980861243,
+                  "threshold": 0.8549235605957538
+                },
+                {
+                  "fpr": 0.009832345896886424,
+                  "precision": 0.04878048780487805,
+                  "recall": 0.019138755980861243,
+                  "threshold": 0.8570579452758973
+                },
+                {
+                  "fpr": 0.009706290180259675,
+                  "precision": 0.04938271604938271,
+                  "recall": 0.019138755980861243,
+                  "threshold": 0.8590434399836742
+                }
+              ]
+            },
+            "user_holdout": {
+              "fpr": 0.006939625260235947,
+              "pr_auc": 0.027365571066975486,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.4711609001685338,
+              "threshold_used": 0.8549235605957538
+            }
+          },
+          "rf": {
+            "meta": {},
+            "model_path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\label_replicators__rf.joblib",
+            "status": "ok",
+            "time_eval": {
+              "fpr": 0.04145077720207254,
+              "pr_auc": 0.02455469794249065,
+              "precision": 0.02040816326530612,
+              "recall": 0.038461538461538464,
+              "roc_auc": 0.49842234622027365,
+              "threshold_used": 0.11
+            },
+            "top_features": [
+              {
+                "feature": "ip_7d__success_rate",
+                "importance": 0.019116497643113104
+              },
+              {
+                "feature": "ip_7d__attempt_cnt",
+                "importance": 0.017923381140653793
+              },
+              {
+                "feature": "user_7d__challenge_rate",
+                "importance": 0.016977518827384065
+              },
+              {
+                "feature": "user_7d__attempt_cnt",
+                "importance": 0.01659632408382362
+              },
+              {
+                "feature": "device_7d__success_rate",
+                "importance": 0.01648164723757196
+              },
+              {
+                "feature": "ip_7d__failure_rate",
+                "importance": 0.016439683659657086
+              },
+              {
+                "feature": "user_7d__failure_rate",
+                "importance": 0.016139145008679336
+              },
+              {
+                "feature": "ip_7d__challenge_rate",
+                "importance": 0.016129976632163354
+              },
+              {
+                "feature": "ip_7d__success_cnt",
+                "importance": 0.01612324555624276
+              },
+              {
+                "feature": "device_7d__success_cnt",
+                "importance": 0.016019918675665032
+              },
+              {
+                "feature": "user_7d__success_rate",
+                "importance": 0.01599541531761566
+              },
+              {
+                "feature": "user_7d__success_cnt",
+                "importance": 0.01596268486481914
+              },
+              {
+                "feature": "device_7d__failure_rate",
+                "importance": 0.015908968974196334
+              },
+              {
+                "feature": "device_7d__attempt_cnt",
+                "importance": 0.015881282781459317
+              },
+              {
+                "feature": "device_7d__challenge_rate",
+                "importance": 0.015816729130166764
+              },
+              {
+                "feature": "ip_24h__attempt_cnt",
+                "importance": 0.013471931230487426
+              },
+              {
+                "feature": "ip_24h__success_rate",
+                "importance": 0.013452372591412092
+              },
+              {
+                "feature": "ip_24h__success_cnt",
+                "importance": 0.013269538247020414
+              },
+              {
+                "feature": "device_24h__attempt_cnt",
+                "importance": 0.012968446955763891
+              },
+              {
+                "feature": "device_24h__success_rate",
+                "importance": 0.012925441353734775
+              }
+            ],
+            "train": {
+              "fpr": 0.009706290180259675,
+              "pr_auc": 0.9999093988880793,
+              "precision": 0.7307692307692307,
+              "recall": 1.0,
+              "threshold_for_fpr": 0.11,
+              "threshold_table_top3": [
+                {
+                  "fpr": 0.009706290180259675,
+                  "precision": 0.7307692307692307,
+                  "recall": 1.0,
+                  "threshold": 0.11
+                },
+                {
+                  "fpr": 0.008823900163872432,
+                  "precision": 0.7491039426523297,
+                  "recall": 1.0,
+                  "threshold": 0.11333333333333333
+                },
+                {
+                  "fpr": 0.008319677297365435,
+                  "precision": 0.76,
+                  "recall": 1.0,
+                  "threshold": 0.11666666666666667
+                }
+              ]
+            },
+            "user_holdout": {
+              "fpr": 0.04718945176960444,
+              "pr_auc": 0.027287749615359385,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.5679290175473382,
+              "threshold_used": 0.11
+            }
+          }
+        },
+        "label_the_chameleon": {
+          "logreg": {
+            "meta": {},
+            "model_path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\label_the_chameleon__logreg.joblib",
+            "status": "ok",
+            "time_eval": {
+              "fpr": 0.024284475281873375,
+              "pr_auc": 0.03229274538802067,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.5426796855328316,
+              "threshold_used": 0.8813672887677239
+            },
+            "top_features": [
+              {
+                "feature": "ip_1h__lockout_cnt",
+                "weight": -1.3693774740318758
+              },
+              {
+                "feature": "ip_1h__lockout_rate",
+                "weight": 0.9093757310534339
+              },
+              {
+                "feature": "ip_24h__failure_cnt",
+                "weight": -0.8968264262915259
+              },
+              {
+                "feature": "ip_7d__lockout_cnt",
+                "weight": 0.8430467961209872
+              },
+              {
+                "feature": "ip_24h__failure_rate",
+                "weight": 0.7179643331837391
+              },
+              {
+                "feature": "ip_7d__success_cnt",
+                "weight": -0.6651829453454139
+              },
+              {
+                "feature": "ip_24h__success_rate",
+                "weight": 0.6221965912009646
+              },
+              {
+                "feature": "ip_7d__failure_rate",
+                "weight": -0.5957330692516755
+              },
+              {
+                "feature": "ip_1h__support_wait_seconds_sum",
+                "weight": -0.5669157211085903
+              },
+              {
+                "feature": "ip_24h__lockout_cnt",
+                "weight": 0.509686056050187
+              },
+              {
+                "feature": "ip_7d__success_rate",
+                "weight": -0.4969603714690611
+              },
+              {
+                "feature": "ip_7d__attempt_cnt",
+                "weight": -0.4859872478032729
+              },
+              {
+                "feature": "user_7d__success_rate",
+                "weight": -0.4504755122805704
+              },
+              {
+                "feature": "device_7d__success_rate",
+                "weight": -0.4504755122805704
+              },
+              {
+                "feature": "ip_7d__support_wait_seconds_sum",
+                "weight": 0.4140880935047031
+              },
+              {
+                "feature": "device_24h__success_rate",
+                "weight": 0.4068753977476767
+              },
+              {
+                "feature": "user_24h__success_rate",
+                "weight": 0.4068753977476767
+              },
+              {
+                "feature": "ip_24h__challenge_cnt",
+                "weight": 0.3797005613918223
+              },
+              {
+                "feature": "device_1h__failure_cnt",
+                "weight": 0.3765243677084321
+              },
+              {
+                "feature": "user_1h__failure_cnt",
+                "weight": 0.3765243677084321
+              }
+            ],
+            "train": {
+              "fpr": 0.009883648192168148,
+              "pr_auc": 0.03897082044482183,
+              "precision": 0.036585365853658534,
+              "recall": 0.020134228187919462,
+              "threshold_for_fpr": 0.8813672887677239,
+              "threshold_table_top3": [
+                {
+                  "fpr": 0.009883648192168148,
+                  "precision": 0.036585365853658534,
+                  "recall": 0.020134228187919462,
+                  "threshold": 0.8813672887677239
+                },
+                {
+                  "fpr": 0.009758538721381209,
+                  "precision": 0.037037037037037035,
+                  "recall": 0.020134228187919462,
+                  "threshold": 0.8817694876603914
+                },
+                {
+                  "fpr": 0.009758538721381209,
+                  "precision": 0.025,
+                  "recall": 0.013422818791946308,
+                  "threshold": 0.8822513449940421
+                }
+              ]
+            },
+            "user_holdout": {
+              "fpr": 0.012482662968099861,
+              "pr_auc": 0.02038857056022012,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.45749367708248345,
+              "threshold_used": 0.8813672887677239
+            }
+          },
+          "rf": {
+            "meta": {},
+            "model_path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\label_the_chameleon__rf.joblib",
+            "status": "ok",
+            "time_eval": {
+              "fpr": 0.03295750216825672,
+              "pr_auc": 0.03561478999269628,
+              "precision": 0.02564102564102564,
+              "recall": 0.03225806451612903,
+              "roc_auc": 0.5968861035727274,
+              "threshold_used": 0.08532763532763532
+            },
+            "top_features": [
+              {
+                "feature": "device_7d__success_rate",
+                "importance": 0.018888367770624935
+              },
+              {
+                "feature": "user_7d__success_rate",
+                "importance": 0.018603049312665012
+              },
+              {
+                "feature": "ip_7d__attempt_cnt",
+                "importance": 0.01796435440665157
+              },
+              {
+                "feature": "user_7d__failure_rate",
+                "importance": 0.017740429110568712
+              },
+              {
+                "feature": "ip_7d__success_rate",
+                "importance": 0.017594106912668196
+              },
+              {
+                "feature": "ip_7d__failure_rate",
+                "importance": 0.017583993769569553
+              },
+              {
+                "feature": "device_7d__failure_rate",
+                "importance": 0.0173218154244854
+              },
+              {
+                "feature": "device_7d__challenge_rate",
+                "importance": 0.01685012163273448
+              },
+              {
+                "feature": "user_7d__challenge_rate",
+                "importance": 0.016744736736206224
+              },
+              {
+                "feature": "device_7d__attempt_cnt",
+                "importance": 0.016498102650621245
+              },
+              {
+                "feature": "device_7d__success_cnt",
+                "importance": 0.016403877297049983
+              },
+              {
+                "feature": "user_7d__success_cnt",
+                "importance": 0.016362900970425167
+              },
+              {
+                "feature": "user_7d__attempt_cnt",
+                "importance": 0.016085473480114524
+              },
+              {
+                "feature": "ip_7d__challenge_rate",
+                "importance": 0.015423452643000457
+              },
+              {
+                "feature": "ip_7d__success_cnt",
+                "importance": 0.015264973955172416
+              },
+              {
+                "feature": "user_24h__success_rate",
+                "importance": 0.015187598762098072
+              },
+              {
+                "feature": "ip_24h__failure_rate",
+                "importance": 0.0149841459658508
+              },
+              {
+                "feature": "ip_24h__success_rate",
+                "importance": 0.014314665336589058
+              },
+              {
+                "feature": "device_24h__success_rate",
+                "importance": 0.014264195637001095
+              },
+              {
+                "feature": "user_24h__failure_rate",
+                "importance": 0.01404739863381571
+              }
+            ],
+            "train": {
+              "fpr": 0.009258100838233455,
+              "pr_auc": 0.9926839690380087,
+              "precision": 0.665158371040724,
+              "recall": 0.9865771812080537,
+              "threshold_for_fpr": 0.08532763532763532,
+              "threshold_table_top3": [
+                {
+                  "fpr": 0.009258100838233455,
+                  "precision": 0.665158371040724,
+                  "recall": 0.9865771812080537,
+                  "threshold": 0.08532763532763532
+                },
+                {
+                  "fpr": 0.009132991367446516,
+                  "precision": 0.6681818181818182,
+                  "recall": 0.9865771812080537,
+                  "threshold": 0.08666666666666667
+                },
+                {
+                  "fpr": 0.008132115601151008,
+                  "precision": 0.6933962264150944,
+                  "recall": 0.9865771812080537,
+                  "threshold": 0.09
+                }
+              ]
+            },
+            "user_holdout": {
+              "fpr": 0.03814147018030513,
+              "pr_auc": 0.02254114053409414,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.48042955046096114,
+              "threshold_used": 0.08532763532763532
+            }
+          }
+        },
+        "label_the_mule": {
+          "logreg": {
+            "meta": {},
+            "model_path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\label_the_mule__logreg.joblib",
+            "status": "ok",
+            "time_eval": {
+              "fpr": 0.012864493996569469,
+              "pr_auc": 0.01532905516448095,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.4859443491518963,
+              "threshold_used": 0.9301366405206686
+            },
+            "top_features": [
+              {
+                "feature": "ip_1h__support_handle_seconds_sum",
+                "weight": -2.166579314732646
+              },
+              {
+                "feature": "ip_7d__support_wait_seconds_sum",
+                "weight": -1.9010719954637891
+              },
+              {
+                "feature": "ip_1h__support_cost_usd_sum",
+                "weight": -1.2557675950338567
+              },
+              {
+                "feature": "ip_24h__failure_rate",
+                "weight": 1.1820882614121988
+              },
+              {
+                "feature": "ip_7d__failure_cnt",
+                "weight": -1.1670563940004106
+              },
+              {
+                "feature": "user_7d__support_wait_seconds_sum",
+                "weight": 1.1589401753574944
+              },
+              {
+                "feature": "device_7d__support_wait_seconds_sum",
+                "weight": 1.1589401753574944
+              },
+              {
+                "feature": "ip_1h__support_contacted_cnt",
+                "weight": 1.0861253364846177
+              },
+              {
+                "feature": "ip_24h__success_cnt",
+                "weight": 0.9462269727161192
+              },
+              {
+                "feature": "ip_7d__support_handle_seconds_sum",
+                "weight": 0.7975470768078219
+              },
+              {
+                "feature": "device_7d__failure_cnt",
+                "weight": 0.7430459591605435
+              },
+              {
+                "feature": "user_7d__failure_cnt",
+                "weight": 0.7430459591605435
+              },
+              {
+                "feature": "ip_7d__support_cost_usd_sum",
+                "weight": 0.7071291710995999
+              },
+              {
+                "feature": "ip_24h__uniq_device_fingerprint_hash_cnt",
+                "weight": -0.6811524655466106
+              },
+              {
+                "feature": "ip_24h__uniq_user_id_cnt",
+                "weight": -0.6811524655466046
+              },
+              {
+                "feature": "ip_7d__challenge_cnt",
+                "weight": 0.6081066797551661
+              },
+              {
+                "feature": "ip_24h__attempt_cnt",
+                "weight": 0.5956289267824413
+              },
+              {
+                "feature": "device_7d__support_contacted_cnt",
+                "weight": -0.5665791967509283
+              },
+              {
+                "feature": "user_7d__support_contacted_cnt",
+                "weight": -0.5665791967509283
+              },
+              {
+                "feature": "ip_7d__success_rate",
+                "weight": 0.5315009766271631
+              }
+            ],
+            "train": {
+              "fpr": 0.009944064636420136,
+              "pr_auc": 0.04097177636104728,
+              "precision": 0.024390243902439025,
+              "recall": 0.020618556701030927,
+              "threshold_for_fpr": 0.9301366405206686,
+              "threshold_table_top3": [
+                {
+                  "fpr": 0.009944064636420136,
+                  "precision": 0.024390243902439025,
+                  "recall": 0.020618556701030927,
+                  "threshold": 0.9301366405206686
+                },
+                {
+                  "fpr": 0.009819763828464886,
+                  "precision": 0.024691358024691357,
+                  "recall": 0.020618556701030927,
+                  "threshold": 0.9304011457297249
+                },
+                {
+                  "fpr": 0.009695463020509634,
+                  "precision": 0.025,
+                  "recall": 0.020618556701030927,
+                  "threshold": 0.9307389503317333
+                }
+              ]
+            },
+            "user_holdout": {
+              "fpr": 0.016472203157172273,
+              "pr_auc": 0.014935324612911704,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.5429686088935447,
+              "threshold_used": 0.9301366405206686
+            }
+          },
+          "rf": {
+            "meta": {},
+            "model_path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\label_the_mule__rf.joblib",
+            "status": "ok",
+            "time_eval": {
+              "fpr": 0.02144082332761578,
+              "pr_auc": 0.01576790302611356,
+              "precision": 0.0,
+              "recall": 0.0,
+              "roc_auc": 0.4926386506575186,
+              "threshold_used": 0.07
+            },
+            "top_features": [
+              {
+                "feature": "device_7d__success_rate",
+                "importance": 0.018474805486791118
+              },
+              {
+                "feature": "device_7d__failure_rate",
+                "importance": 0.01810236384792276
+              },
+              {
+                "feature": "user_7d__attempt_cnt",
+                "importance": 0.018060196457225064
+              },
+              {
+                "feature": "user_7d__failure_rate",
+                "importance": 0.01739252974891714
+              },
+              {
+                "feature": "ip_24h__failure_rate",
+                "importance": 0.017251081871296543
+              },
+              {
+                "feature": "user_7d__success_rate",
+                "importance": 0.01673071750808059
+              },
+              {
+                "feature": "ip_7d__success_rate",
+                "importance": 0.016572832923301258
+              },
+              {
+                "feature": "ip_7d__failure_rate",
+                "importance": 0.01656599140833281
+              },
+              {
+                "feature": "device_7d__attempt_cnt",
+                "importance": 0.015776310801188815
+              },
+              {
+                "feature": "device_7d__success_cnt",
+                "importance": 0.015686545312549195
+              },
+              {
+                "feature": "user_7d__success_cnt",
+                "importance": 0.015340171008916388
+              },
+              {
+                "feature": "ip_7d__attempt_cnt",
+                "importance": 0.015189802393623393
+              },
+              {
+                "feature": "device_7d__challenge_rate",
+                "importance": 0.015173990322814709
+              },
+              {
+                "feature": "ip_24h__success_rate",
+                "importance": 0.015167462366729011
+              },
+              {
+                "feature": "ip_7d__challenge_rate",
+                "importance": 0.015123218964891102
+              },
+              {
+                "feature": "ip_7d__success_cnt",
+                "importance": 0.015088375246703546
+              },
+              {
+                "feature": "user_7d__challenge_rate",
+                "importance": 0.014303698251773996
+              },
+              {
+                "feature": "ip_7d__lockout_rate",
+                "importance": 0.013562445458881535
+              },
+              {
+                "feature": "device_24h__success_rate",
+                "importance": 0.012717725128537586
+              },
+              {
+                "feature": "ip_24h__attempt_cnt",
+                "importance": 0.012524750297370142
+              }
+            ],
+            "train": {
+              "fpr": 0.009571162212554381,
+              "pr_auc": 0.9999999999999999,
+              "precision": 0.5574712643678161,
+              "recall": 1.0,
+              "threshold_for_fpr": 0.07,
+              "threshold_table_top3": [
+                {
+                  "fpr": 0.009571162212554381,
+                  "precision": 0.5574712643678161,
+                  "recall": 1.0,
+                  "threshold": 0.07
+                },
+                {
+                  "fpr": 0.009198259788688627,
+                  "precision": 0.5672514619883041,
+                  "recall": 1.0,
+                  "threshold": 0.07333333333333333
+                },
+                {
+                  "fpr": 0.008079552517091361,
+                  "precision": 0.5987654320987654,
+                  "recall": 1.0,
+                  "threshold": 0.07666666666666666
+                }
+              ]
+            },
+            "user_holdout": {
+              "fpr": 0.031571722717913524,
+              "pr_auc": 0.014539042374524618,
+              "precision": 0.02127659574468085,
+              "recall": 0.05263157894736842,
+              "roc_auc": 0.4435032330311021,
+              "threshold_used": 0.07
+            }
+          }
+        }
+      },
+      "meta": {
+        "env": {
+          "pandas": "2.3.3",
+          "platform": "Windows-10-10.0.19045-SP0",
+          "pyarrow": "22.0.0",
+          "python": "3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]",
+          "sklearn": "1.8.0",
+          "threadpools": [
+            {
+              "architecture": "Haswell",
+              "filepath": "C:\\Users\\Mart\u00edn\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\numpy.libs\\libscipy_openblas64_-9e3e5a4229c1ca39f10dc82bba9e2b2b.dll",
+              "internal_api": "openblas",
+              "num_threads": 8,
+              "prefix": "libscipy_openblas",
+              "threading_layer": "pthreads",
+              "user_api": "blas",
+              "version": "0.3.30"
+            },
+            {
+              "filepath": "C:\\Users\\Mart\u00edn\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\sklearn\\.libs\\vcomp140.dll",
+              "internal_api": "openmp",
+              "num_threads": 8,
+              "prefix": "vcomp",
+              "user_api": "openmp",
+              "version": null
+            },
+            {
+              "architecture": "Haswell",
+              "filepath": "C:\\Users\\Mart\u00edn\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\scipy.libs\\libscipy_openblas-48c358d105077551cc9cc3ba79387ed5.dll",
+              "internal_api": "openblas",
+              "num_threads": 8,
+              "prefix": "libscipy_openblas",
+              "threading_layer": "pthreads",
+              "user_api": "blas",
+              "version": "0.3.29.dev"
+            }
+          ]
+        },
+        "n_failed": 0,
+        "n_ok": 6,
+        "time_eval_rows": 1184,
+        "train_rows": 8142,
+        "user_holdout_rows": 1476
+      },
+      "paths": {
+        "baselines_log": "runs\\RUN_SAMPLE_SMOKE_0001\\logs\\baselines.log",
+        "metrics_json": "runs\\RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\metrics.json",
+        "report_md": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\baselines_login_attempt.md"
+      },
+      "status": "ok",
+      "target_fpr": 0.01
+    }
+  },
+  "eval": {
+    "login_attempt": {
+      "slices_report": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_slices_login_attempt.md",
+      "stability_report": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_stability_login_attempt.md",
+      "stability_summary": {
+        "primary_split": "user_holdout",
+        "rows": [],
+        "status": "partial"
+      }
+    }
+  },
+  "generated_at_utc": "2025-12-23T04:10:00.067705Z",
+  "notes": [],
+  "run_id": "RUN_SAMPLE_SMOKE_0001",
+  "schema_version": 1,
+  "signature": {
+    "config_hash": "5d6e99bb3f83ea1d3907bcceed9774fa5f77170a10b2f5d5a7cfec8ea2c8dabb",
+    "github_sha": null,
+    "schema_version": "v1",
+    "seed": 1337
+  },
+  "timezone": "America/Argentina/Buenos_Aires"
+}

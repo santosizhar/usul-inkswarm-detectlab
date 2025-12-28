@@ -1,5 +1,41 @@
-from __future__ import annotations
 
+from __future__ import annotations
+def _repo_root() -> Path:
+    # step_runner.py lives at <repo>/src/inkswarm_detectlab/ui/step_runner.py
+    return Path(__file__).resolve().parents[3]
+
+
+def _resolve_cfg_path(p: Path) -> Path:
+    """Resolve config path robustly for notebooks.
+
+    - If p exists, return it.
+    - Else try resolving relative to repo root.
+    - Else search under <repo>/configs for a matching filename.
+    """
+    if p.exists():
+        return p
+
+    root = _repo_root()
+
+    cand = root / p
+    if cand.exists():
+        return cand
+
+    # common: user passes "configs/foo.yaml" but CWD is notebooks/
+    if "configs" in p.parts:
+        cand2 = root / "configs" / p.name
+        if cand2.exists():
+            return cand2
+
+    matches = list((root / "configs").rglob(p.name))
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        # pick the shortest path (closest) deterministically
+        matches = sorted(matches, key=lambda x: len(x.parts))
+        return matches[0]
+
+    return p
 """Notebook-oriented step runners.
 
 Design goals (D-0022):
@@ -12,7 +48,7 @@ These helpers intentionally avoid any notebook-only dependencies.
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Union,  Any, Dict, Optional, Tuple
 
 import json
 
@@ -100,24 +136,44 @@ def _ensure_manifest(cfg: Any, run_dir: Path) -> Dict[str, Any]:
 
 
 def resolve_run_id(
-    cfg_path: Path,
+    cfg_or_path: Union[Path, Any],
     run_id: Optional[str] = None,
 ) -> Tuple[Any, str]:
-    """Load config and return (cfg, run_id). If run_id is None, generate one."""
-    cfg = load_config(cfg_path)
+    """Resolve config + run_id for notebook step helpers.
+
+    Accepts either:
+    - cfg_or_path: Path to a YAML config, or
+    - cfg_or_path: an already-loaded AppConfig-like object.
+    """
+    if isinstance(cfg_or_path, Path):
+        cfg_path = _resolve_cfg_path(cfg_or_path)
+        cfg = load_config(cfg_path)
+    else:
+        cfg = cfg_or_path
+
+    # explicit override wins
     if run_id is not None:
         return cfg, run_id
+
+    # config may pin run_id
+    pinned = getattr(getattr(cfg, "run", None), "run_id", None)
+    if pinned:
+        return cfg, pinned
+
+    # otherwise generate sequential id using fingerprint + configured prefix/width (no strategy field)
     _, cfg_hash8 = _config_fingerprint(cfg)
-    run_id = make_run_id(
-        runs_dir=cfg.paths.runs_dir,
-        prefix=cfg.run.run_id_prefix,
+    prefix = getattr(getattr(cfg, "run", None), "run_id_prefix", "RUN")
+    width = int(getattr(getattr(cfg, "run", None), "run_id_width", 4) or 4)
+    rid = make_run_id(
         config_hash8=cfg_hash8,
-        strategy=cfg.run.run_id_strategy,
+        runs_dir=Path(cfg.paths.runs_dir),
+        prefix=prefix,
+        width=width,
     )
-    return cfg, run_id
+    return cfg, rid
 
 
-def wire_check(cfg_path: Path, run_id: Optional[str] = None) -> Dict[str, Any]:
+def wire_check(cfg_or_path: Union[Path, Any], run_id: Optional[str] = None) -> Dict[str, Any]:
     """Lightweight wiring check (no heavy compute).
 
     - resolves cfg + run_id
@@ -125,7 +181,7 @@ def wire_check(cfg_path: Path, run_id: Optional[str] = None) -> Dict[str, Any]:
     - ensures manifest exists
     - returns the key paths the step notebook will use
     """
-    cfg, rid = resolve_run_id(cfg_path, run_id=run_id)
+    cfg, rid = resolve_run_id(cfg_or_path, run_id=run_id)
     rdir = run_dir_for(Path(cfg.paths.runs_dir), rid)
     rdir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(cfg, rdir)
@@ -226,10 +282,28 @@ def step_features(
     rec: Optional[StepRecorder] = None,
     reuse_if_exists: bool = True,
     force: bool = False,
-    use_cache: bool = True,
-    write_cache: bool = True,
+    # Canonical notebook-facing toggles (D-0025)
+    use_shared_feature_cache: bool = True,
+    write_shared_feature_cache: bool = True,
+    # Compatibility shims (pre-RR / internal naming). If provided, overrides canonical.
+    use_cache: Optional[bool] = None,
+    write_cache: Optional[bool] = None,
+    use_shared_cache: Optional[bool] = None,
+    write_shared_cache: Optional[bool] = None,
 ) -> StepResult:
     """Step 2: build login features (or reuse cache/artifacts)."""
+    # Resolve compatibility toggles
+    if use_shared_cache is not None:
+        use_shared_feature_cache = use_shared_cache
+    if write_shared_cache is not None:
+        write_shared_feature_cache = write_shared_cache
+    if use_cache is not None:
+        use_shared_feature_cache = use_cache
+    if write_cache is not None:
+        write_shared_feature_cache = write_cache
+
+    use_cache_final = bool(use_shared_feature_cache)
+    write_cache_final = bool(write_shared_feature_cache)
     rdir = run_dir_for(Path(cfg.paths.runs_dir), run_id)
     rdir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(cfg, rdir)
@@ -243,8 +317,8 @@ def step_features(
         toggles={
             "reuse_if_exists": reuse_if_exists,
             "force": force,
-            "use_cache": use_cache,
-            "write_cache": write_cache,
+            "use_cache": use_cache_final,
+            "write_cache": write_cache_final,
         },
     )
 
@@ -545,11 +619,47 @@ def step_export(
         return _finalize_step(rdir, step)
 
     def _do() -> None:
-        write_ui_summary(cfg, run_id=run_id)
-        write_exec_summary(cfg, run_id=run_id)
-        export_ui_bundle(cfg, run_id=run_id)
-        write_mvp_handover(cfg, run_id=run_id)
-        export_evidence_bundle(cfg, run_id=run_id)
+        # 5A) UI summary (used as input to handover)
+        ui_summary_path = write_ui_summary(cfg, run_id=run_id, force=force)
+        try:
+            summary: dict[str, Any] = _read_json(ui_summary_path)
+        except Exception as e:  # noqa: BLE001
+            summary = {
+                "run_id": run_id,
+                "note": f"Failed to read ui_summary.json for handover ({e})",
+                "ui_summary_json": str(ui_summary_path),
+            }
+
+        # 5B) Exec summary (writes into runs/<run_id>/reports/...)
+        exec_art = write_exec_summary(run_dir=rdir)
+        summary.setdefault("artifacts", {})
+        for k in ("exec_md", "exec_html", "summary_md", "summary_html"):
+            p = getattr(exec_art, k, None)
+            if p is not None:
+                summary["artifacts"][k] = str(p)
+
+        # 5C) UI bundle (writes into runs/<run_id>/share/reports/...)
+        ui_out_dir = (rdir / "share" / "reports")
+        ui_out_dir.mkdir(parents=True, exist_ok=True)
+        ui_bundle_dir = export_ui_bundle(cfg, run_ids=[run_id], out_dir=ui_out_dir, force=force)
+        summary["artifacts"]["ui_bundle_dir"] = str(ui_bundle_dir)
+
+        # 5D) Handover markdown (runs/<run_id>/reports/mvp_handover.md)
+        write_mvp_handover(
+            runs_dir=Path(cfg.paths.runs_dir),
+            run_id=run_id,
+            ui_bundle_dir=Path(ui_bundle_dir) if ui_bundle_dir else None,
+            summary=summary,
+        )
+
+        # 5E) Evidence bundle (optional) — best-effort, never fails the step
+        try:
+            export_evidence_bundle(run_dir=rdir, force=force)
+        except TypeError:
+            export_evidence_bundle(run_dir=rdir)
+        except Exception:  # noqa: BLE001
+            pass
+
 
     if rec:
         with rec.step("export_share_bundle", details={"run_id": run_id, "force": force}):
