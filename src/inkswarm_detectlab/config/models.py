@@ -55,6 +55,18 @@ class SkynetSpikeConfig(BaseModel):
     p_triple_overlap: float = Field(default=0.04, ge=0.0, le=1.0)
 
 
+class SkynetAttackPatternConfig(BaseModel):
+    # Pack sizing drives how many sequential attack events appear together.
+    pack_size_mean: float = Field(default=4.0, ge=1.0)
+    pack_size_std: float = Field(default=1.5, ge=0.0)
+    # Within-pack spacing caps how spread-out sequential attacks can be (seconds).
+    max_pack_spacing_seconds: int = Field(default=120, ge=1)
+    # Which label tends to lead a pack; filtered to campaign playbooks when active.
+    label_pack_weights: dict[str, float] = Field(
+        default_factory=lambda: {"REPLICATORS": 0.50, "THE_MULE": 0.25, "THE_CHAMELEON": 0.25}
+    )
+
+
 class SkynetSyntheticConfig(BaseModel):
     # Time window
     start_date: date = Field(default=date(2025, 12, 1), description="Local start date in BA timezone.")
@@ -74,6 +86,7 @@ class SkynetSyntheticConfig(BaseModel):
     # Realism knobs
     seasonality: SkynetSeasonalityConfig = Field(default_factory=SkynetSeasonalityConfig)
     spikes: SkynetSpikeConfig = Field(default_factory=SkynetSpikeConfig)
+    attack_pattern: SkynetAttackPatternConfig = Field(default_factory=SkynetAttackPatternConfig)
 
 
 class SyntheticConfig(BaseModel):

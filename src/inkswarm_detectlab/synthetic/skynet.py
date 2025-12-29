@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 import json
 
@@ -13,6 +13,14 @@ from ..utils.hashing import stable_mod
 
 
 PLAYBOOKS = ["REPLICATORS", "THE_MULE", "THE_CHAMELEON"]
+
+
+@dataclass(frozen=True)
+class AttackPatternSetup:
+    pack_size_mean: float
+    pack_size_std: float
+    max_pack_spacing_seconds: int
+    label_pack_weights: dict[str, float]
 
 
 @dataclass(frozen=True)
@@ -73,6 +81,92 @@ def _campaign_effects(campaign_type: str) -> tuple[float, float]:
     return 1.0, 1.0
 
 
+def _setup_attack_pattern(cfg: SkynetSyntheticConfig, rng: np.random.Generator) -> AttackPatternSetup:
+    """One-time setup for pack-style attack injection (user-visible knob staging)."""
+    weights = cfg.attack_pattern.label_pack_weights or {}
+    cleaned = {k: float(v) for k, v in weights.items() if float(v) > 0.0}
+    if not cleaned:
+        cleaned = {k: 1.0 for k in PLAYBOOKS}
+    total = sum(cleaned.values())
+    normed = {k: v / total for k, v in cleaned.items()}
+
+    return AttackPatternSetup(
+        pack_size_mean=float(cfg.attack_pattern.pack_size_mean),
+        pack_size_std=float(cfg.attack_pattern.pack_size_std),
+        max_pack_spacing_seconds=int(cfg.attack_pattern.max_pack_spacing_seconds),
+        label_pack_weights=normed,
+    )
+
+
+def _choose_pack_label(
+    rng: np.random.Generator, setup: AttackPatternSetup, playbooks: tuple[str, ...] | None
+) -> str:
+    """Pick a lead playbook for a pack, preferring those allowed by the campaign."""
+
+    keys = PLAYBOOKS if not playbooks else [p for p in PLAYBOOKS if p in playbooks]
+    w = np.array([setup.label_pack_weights.get(k, 0.0) for k in keys], dtype=float)
+    if w.sum() <= 0:
+        w = np.ones_like(w)
+    w = w / w.sum()
+    return str(rng.choice(keys, p=w))
+
+
+def _plan_hour_offsets(
+    rng: np.random.Generator,
+    n_events: int,
+    attack_rate: float,
+    setup: AttackPatternSetup,
+    playbooks: tuple[str, ...] | None,
+) -> tuple[np.ndarray, np.ndarray, list[str | None]]:
+    """Generate sorted offsets + attack flags with sequential pack behavior."""
+
+    if n_events <= 0:
+        return np.array([], dtype=int), np.array([], dtype=bool), []
+
+    expected_attacks = attack_rate * n_events
+    n_attacks = int(round(expected_attacks))
+    n_attacks = min(max(n_attacks, 0), n_events)
+
+    if n_attacks == 0:
+        offsets = np.sort(rng.integers(0, 3600, size=n_events))
+        return offsets, np.zeros(n_events, dtype=bool), [None] * n_events
+
+    pack_mean = max(1.0, setup.pack_size_mean)
+    n_packs = max(1, int(np.ceil(n_attacks / pack_mean)))
+
+    remaining = n_attacks
+    attack_offsets: list[int] = []
+    attack_labels: list[str | None] = []
+    anchors = np.linspace(0, max(1, 3600 - setup.max_pack_spacing_seconds), num=n_packs, dtype=int)
+
+    for i in range(n_packs):
+        pack_size = int(max(1, round(rng.normal(pack_mean, setup.pack_size_std))))
+        pack_size = min(pack_size, remaining - (n_packs - i - 1)) if (remaining - (n_packs - i - 1)) > 0 else 1
+        remaining -= pack_size
+
+        anchor = int(min(3599, anchors[i] + int(rng.integers(0, max(1, setup.max_pack_spacing_seconds // 2)))))
+        increments = np.sort(rng.integers(0, max(1, setup.max_pack_spacing_seconds), size=pack_size))
+        attack_offsets.extend([int(min(3599, anchor + int(dx))) for dx in increments])
+
+        label = _choose_pack_label(rng, setup, playbooks)
+        attack_labels.extend([label] * pack_size)
+
+    if remaining > 0:
+        filler = [int(x) for x in rng.integers(0, 3600, size=remaining)]
+        attack_offsets.extend(filler)
+        attack_labels.extend([_choose_pack_label(rng, setup, playbooks)] * remaining)
+
+    benign_n = n_events - len(attack_offsets)
+    benign_offsets = [] if benign_n <= 0 else [int(x) for x in rng.integers(0, 3600, size=benign_n)]
+
+    offsets = np.array(attack_offsets + benign_offsets, dtype=int)
+    attack_flags = np.array([True] * len(attack_offsets) + [False] * len(benign_offsets), dtype=bool)
+    preferred_labels: list[str | None] = attack_labels + [None] * len(benign_offsets)
+
+    order = np.argsort(offsets)
+    return offsets[order], attack_flags[order], [preferred_labels[i] for i in order]
+
+
 def _schedule_campaigns(cfg: SkynetSyntheticConfig, rng: np.random.Generator) -> list[Campaign]:
     if not cfg.spikes.enabled or cfg.spikes.n_campaigns <= 0:
         return []
@@ -104,18 +198,33 @@ def _sample_attack_labels(
     playbooks: tuple[str, ...] | None,
     p_pair: float,
     p_triple: float,
+    preferred_label: str | None = None,
 ) -> tuple[bool, bool, bool]:
     """Return (replicators, mule, chameleon)."""
     if not playbooks:
         # baseline: single-label only
         label = rng.choice(PLAYBOOKS, p=[0.45, 0.20, 0.35])
-        return (label == "REPLICATORS", label == "THE_MULE", label == "THE_CHAMELEON")
+        rep = label == "REPLICATORS"
+        mule = label == "THE_MULE"
+        cham = label == "THE_CHAMELEON"
+        if preferred_label in PLAYBOOKS:
+            rep = rep or preferred_label == "REPLICATORS"
+            mule = mule or preferred_label == "THE_MULE"
+            cham = cham or preferred_label == "THE_CHAMELEON"
+        return rep, mule, cham
 
     # campaign-driven: allow overlaps that "make sense"
     pb = list(playbooks)
     if len(pb) == 1:
         label = pb[0]
-        return (label == "REPLICATORS", label == "THE_MULE", label == "THE_CHAMELEON")
+        rep = label == "REPLICATORS"
+        mule = label == "THE_MULE"
+        cham = label == "THE_CHAMELEON"
+        if preferred_label in PLAYBOOKS:
+            rep = rep or preferred_label == "REPLICATORS"
+            mule = mule or preferred_label == "THE_MULE"
+            cham = cham or preferred_label == "THE_CHAMELEON"
+        return rep, mule, cham
 
     u = rng.random()
     if len(pb) == 3 and u < p_triple:
@@ -127,7 +236,14 @@ def _sample_attack_labels(
 
     # otherwise single label from the campaign set
     label = rng.choice(pb)
-    return (label == "REPLICATORS", label == "THE_MULE", label == "THE_CHAMELEON")
+    rep = label == "REPLICATORS"
+    mule = label == "THE_MULE"
+    cham = label == "THE_CHAMELEON"
+    if preferred_label in PLAYBOOKS:
+        rep = rep or preferred_label == "REPLICATORS"
+        mule = mule or preferred_label == "THE_MULE"
+        cham = cham or preferred_label == "THE_CHAMELEON"
+    return rep, mule, cham
 
 
 def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
@@ -137,6 +253,8 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
     """
     s = cfg.synthetic.skynet
     rng = np.random.default_rng(cfg.run.seed if seed is None else seed)
+
+    attack_setup = _setup_attack_pattern(s, rng)
 
     start_dt = datetime.combine(s.start_date, datetime.min.time()).replace(tzinfo=BA_TZ)
     start_dt = ensure_ba(start_dt)
@@ -196,20 +314,29 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
         if n <= 0:
             continue
 
+        offsets, attack_flags, preferred_labels = _plan_hour_offsets(
+            rng, n, attack_rate, attack_setup, camp_playbooks
+        )
+
         # sample users
         users = rng.choice(user_ids, size=n, replace=True, p=weights)
-        # per-event ts within hour
-        offsets = rng.integers(0, 3600, size=n)
+        # per-event ts within hour (already sorted)
         event_ts = [ts0 + timedelta(seconds=int(o)) for o in offsets]
 
         for i in range(n):
             event_counter += 1
             eid = f"login_{event_counter:010d}"
             uid = str(users[i])
-            is_attack = rng.random() < attack_rate
+            is_attack = bool(attack_flags[i])
 
             if is_attack:
-                rep, mule, cham = _sample_attack_labels(rng, camp_playbooks, s.spikes.p_pair_overlap, s.spikes.p_triple_overlap)
+                rep, mule, cham = _sample_attack_labels(
+                    rng,
+                    camp_playbooks,
+                    s.spikes.p_pair_overlap,
+                    s.spikes.p_triple_overlap,
+                    preferred_labels[i],
+                )
             else:
                 rep = mule = cham = False
 
@@ -220,21 +347,36 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
             if benign:
                 login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.80, 0.15, 0.04, 0.01])
             else:
-                # attackers get more challenge/lockout
-                login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.15, 0.40, 0.30, 0.15])
+                if rep and not (mule or cham):
+                    # spray-style: lots of bulk failures + lockouts
+                    login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.10, 0.45, 0.25, 0.20])
+                elif mule and not (rep or cham):
+                    # targeted takeover attempts
+                    login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.40, 0.35, 0.15, 0.10])
+                else:
+                    # adaptive attackers (chameleon or mixed packs)
+                    login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.22, 0.33, 0.28, 0.17])
 
             failure_reason = None
             if login_result == "failure":
                 failure_reason = rng.choice(["bad_password", "mfa_failed", "rate_limited", "other"], p=[0.55, 0.20, 0.20, 0.05])
 
             username_present = True
-            mfa_used = bool(rng.random() < (0.35 if benign else 0.15))
+            if benign:
+                mfa_used = bool(rng.random() < 0.35)
+            elif rep and not mule:
+                mfa_used = bool(rng.random() < 0.10)
+            elif mule and not rep:
+                mfa_used = bool(rng.random() < 0.25)
+            else:
+                mfa_used = bool(rng.random() < 0.18)
             if not mfa_used:
                 mfa_result = "not_applicable"
             else:
                 mfa_result = rng.choice(["pass", "fail"], p=[0.92 if benign else 0.40, 0.08 if benign else 0.60])
 
-            support_contacted = bool(rng.random() < (0.04 if benign else 0.18) + (0.06 if login_result in ("challenge", "lockout") else 0.0))
+            support_base = 0.04 if benign else (0.10 if rep else 0.22 if mule else 0.16)
+            support_contacted = bool(rng.random() < support_base + (0.06 if login_result in ("challenge", "lockout") else 0.0))
             if not support_contacted:
                 support_channel = "none"
                 support_responder_type = "none"
@@ -386,6 +528,10 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
         pass
 
     meta = {
+        "attack_pattern_setup": {
+            "comment": "pack-style attack injection to surface label separation",
+            "parameters": asdict(attack_setup),
+        },
         "campaigns": [
             {
                 "campaign_id": c.campaign_id,
