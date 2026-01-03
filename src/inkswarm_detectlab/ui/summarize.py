@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
+import json
+
 from ..config import AppConfig
 from ..io.paths import run_dir as run_dir_for
 from ..io.manifest import read_manifest
+from ..utils.safe_io import safe_read_json
 
 
 UI_SCHEMA_VERSION = 1
@@ -18,8 +20,8 @@ def _now_utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _read_json_dict(path: Path) -> dict[str, Any]:
+    return safe_read_json(path, default={}) or {}
 
 
 def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
@@ -67,8 +69,8 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
     user_report_path = rdir / "reports" / "baselines_login_attempt.md"
     log_path = rdir / "logs" / "baselines.log"
     if metrics_path.exists():
-        try:
-            metrics = _read_json(metrics_path)
+        metrics = _read_json_dict(metrics_path)
+        if metrics:
             out["baselines"]["login_attempt"] = {
                 "target_fpr": metrics.get("target_fpr"),
                 "status": metrics.get("status"),
@@ -83,8 +85,8 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
             out["artifacts"]["baseline_report_md"] = str(user_report_path) if user_report_path.exists() else (str(report_path) if report_path.exists() else None)
             if metrics.get("status") == "partial":
                 out["notes"].append("Baselines status is PARTIAL: one or more fits failed. See baselines log.")
-        except Exception as e:
-            out["notes"].append(f"Failed to read baselines metrics: {e}")
+        else:
+            out["notes"].append("Failed to read baselines metrics (missing or invalid JSON).")
     else:
         out["notes"].append("Baselines metrics not found (run may be pre-baselines or baselines failed).")
 
@@ -100,8 +102,8 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
             "stability_summary": None,
         }
         if stab_json.exists():
-            try:
-                payload = _read_json(stab_json)
+            payload = _read_json_dict(stab_json)
+            if payload:
                 # Build a compact table for the UI: label x model on primary split (user_holdout)
                 table = []
                 for model_name, mobj in (payload.get("models") or {}).items():
@@ -123,8 +125,8 @@ def build_ui_summary(cfg: AppConfig, *, run_id: str) -> dict[str, Any]:
                     "rows": table,
                     "status": payload.get("status"),
                 }
-            except Exception as e:
-                out["notes"].append(f"Failed to read eval stability JSON: {e}")
+            else:
+                out["notes"].append("Failed to read eval stability JSON (missing or invalid JSON).")
 
     # Summary report (optional)
     summary_path = rdir / "reports" / "summary.md"

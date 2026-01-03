@@ -27,6 +27,12 @@ DetectLab writes artifacts under:
 - UI export writes bundle: `runs/<RUN_ID>/share/ui_bundle/index.html`
 - Optional tiny run (if enabled) leaves caches clean after `tools/cache_prune.sh`
 
+### JSON I/O policy (operators vs. fail-closed tooling)
+
+- **Operator- and UI-facing surfaces** use `safe_read_json` / `safe_read_text` (best-effort) to tolerate missing/malformed artifacts without blocking notebooks or dashboards.
+- **Fail-closed tooling** (RR signature/evidence scripts) uses `read_json_strict` to surface actionable errors when required artifacts are unreadable or invalid.
+- When extending flows, choose the strict helper if failure should halt the run; otherwise stick to the best-effort helpers to keep UX resilient.
+
 
 ### Run ID convention
 
