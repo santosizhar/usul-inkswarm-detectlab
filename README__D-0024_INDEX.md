@@ -20,5 +20,5 @@ This index keeps the bundle history navigable without searching the root directo
   - `README__D-0024.1_BUNDLE.md`
 
 Other ceremony anchors:
-- Code freeze (latest): `CODE_FREEZE__CF-0004.md`
-- Restart prompt: `inkswarm-detectlab__MASTERPROMPT_CF-0004__Code-Freeze-Restart.md`
+- Code freeze (latest): `CODE_FREEZE__CF-0005.md`
+- Restart prompt: `inkswarm-detectlab__MASTERPROMPT_CF-0005__Code-Freeze-Restart.md`

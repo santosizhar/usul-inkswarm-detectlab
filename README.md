@@ -13,14 +13,14 @@ If you only read one doc:
 - `docs/` — runbook, readiness, and troubleshooting
 - `tests/` — unit/regression tests
 - `runs/` — run artifacts (reports, manifests, caches)
-- Ceremony: see `CODE_FREEZE__CF-0004.md` (latest) and `inkswarm-detectlab__MASTERPROMPT_CF-0004__Code-Freeze-Restart.md`
+- Ceremony: see `CODE_FREEZE__CF-0005.md` (latest) and `inkswarm-detectlab__MASTERPROMPT_CF-0005__Code-Freeze-Restart.md`
 - History bundles: latest bundle `README__D-0024.15_BUNDLE.md`; index of older bundles at `README__D-0024_INDEX.md`.
 
 ### Entry points
 - CLI: `detectlab` (`python -m inkswarm_detectlab`), see `detectlab --help`
 - Runbook: `docs/runbook.md`
 - Quickstart + verification: `docs/getting_started.md`
-- Bundle index + ceremony anchors: `README__D-0024_INDEX.md`, `CODE_FREEZE__CF-0004.md`
+- Bundle index + ceremony anchors: `README__D-0024_INDEX.md`, `CODE_FREEZE__CF-0005.md`
 
 ---
 
@@ -131,8 +131,8 @@ detectlab sanity -c configs/skynet_smoke.yaml --run-id SANITY_SMOKE_0001 --force
 
 ## Code Freeze
 
-- Latest: `CODE_FREEZE__CF-0004.md`
-- Restart prompt: `inkswarm-detectlab__MASTERPROMPT_CF-0004__Code-Freeze-Restart.md`
+- Latest: `CODE_FREEZE__CF-0005.md`
+- Restart prompt: `inkswarm-detectlab__MASTERPROMPT_CF-0005__Code-Freeze-Restart.md`
 
 ## Hygiene & ops notes
 - Dependency drift: run `tools/dependency_check.sh` (prints `pip check` + outdated list) and review `requirements.lock` when bumping deps.

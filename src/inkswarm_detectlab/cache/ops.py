@@ -10,12 +10,13 @@ Each key directory may contain a `meta.json` written by the caching layer.
 
 from __future__ import annotations
 
-import json
 import shutil
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
+
+from inkswarm_detectlab.utils.safe_io import safe_read_json
 
 
 @dataclass(frozen=True)
@@ -58,13 +59,6 @@ def _dir_size_bytes(path: Path) -> int:
     return total
 
 
-def _safe_read_json(path: Path) -> dict:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
 def iter_feature_cache_entries(cache_dir: Path) -> list[FeatureCacheEntry]:
     """Enumerate feature cache keys under `cache_dir/features`.
 
@@ -79,7 +73,7 @@ def iter_feature_cache_entries(cache_dir: Path) -> list[FeatureCacheEntry]:
         if not key_dir.is_dir():
             continue
         meta_path = key_dir / "meta.json"
-        meta = _safe_read_json(meta_path) if meta_path.exists() else {}
+        meta = safe_read_json(meta_path, default={}) if meta_path.exists() else {}
 
         entries.append(
             FeatureCacheEntry(
