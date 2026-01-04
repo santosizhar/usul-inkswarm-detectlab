@@ -1,0 +1,171 @@
+{
+  "artifacts": {
+    "dataset/checkout_attempt/time_eval": {
+      "content_hash": "ca76373ca929b06c3ca6dde83ae0c372e73a387ef03fb6eb60ded7c023e15960",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\dataset\\checkout_attempt\\time_eval.parquet",
+      "rows": 138
+    },
+    "dataset/checkout_attempt/train": {
+      "content_hash": "278278d96cd6ec4a85142f071fd24870ac570d7ed222b06d0e5d0f296533961c",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\dataset\\checkout_attempt\\train.parquet",
+      "rows": 799
+    },
+    "dataset/checkout_attempt/user_holdout": {
+      "content_hash": "e5f50427741301ae4b6f45e3d6af291c38f139d50b8ae1c2d573d69221f7227b",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\dataset\\checkout_attempt\\user_holdout.parquet",
+      "rows": 169
+    },
+    "dataset/login_attempt/time_eval": {
+      "content_hash": "72572eddb730b82ef110bb0939e4b76715e3a530e266a4d6355b97a8757abe06",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\dataset\\login_attempt\\time_eval.parquet",
+      "rows": 1184
+    },
+    "dataset/login_attempt/train": {
+      "content_hash": "275ab47d0855af19196e660e84af5d9d9d265c619daeb1d838b386182d8fb8dd",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\dataset\\login_attempt\\train.parquet",
+      "rows": 8142
+    },
+    "dataset/login_attempt/user_holdout": {
+      "content_hash": "bc5ddab04a6f0913b6e4cfbef96b03072097dd56340cb9034a15be35ec259758",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\dataset\\login_attempt\\user_holdout.parquet",
+      "rows": 1476
+    },
+    "raw/checkout_attempt": {
+      "content_hash": "efd3a941a17660147a8a9ea554f765f9d67417027c8ba8d26bc9d0f4a0a11fdf",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\raw\\checkout_attempt.parquet",
+      "rows": 1106
+    },
+    "raw/login_attempt": {
+      "content_hash": "db551f31b57a950e8b7f440a0238c6933ccd277b9d31d690efcb61b1d92358e5",
+      "format": "parquet",
+      "note": null,
+      "path": "RR2_MVP_GIT_B_0002\\raw\\login_attempt.parquet",
+      "rows": 10802
+    }
+  },
+  "code": {
+    "github_sha": null
+  },
+  "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+  "dataset": {
+    "canonical_sort_keys": [
+      "event_ts",
+      "user_id",
+      "event_id"
+    ],
+    "checkout_attempt": {
+      "boundary_ts_ba": "2025-12-06T22:35:57.800000-03:00",
+      "holdout_users": 23
+    },
+    "login_attempt": {
+      "boundary_ts_ba": "2025-12-06T22:45:28.350000-03:00",
+      "holdout_users": 27
+    },
+    "time_split": 0.85,
+    "user_holdout": 0.15
+  },
+  "generator_meta": {
+    "campaigns": [
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C01",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "THE_MULE",
+          "THE_CHAMELEON"
+        ],
+        "start_hour_index": 16,
+        "volume_multiplier": 2.0
+      },
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C02",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "REPLICATORS",
+          "THE_CHAMELEON"
+        ],
+        "start_hour_index": 144,
+        "volume_multiplier": 2.0
+      }
+    ]
+  },
+  "run_id": "RR2_MVP_GIT_B_0002",
+  "schema_version": "v1",
+  "seed": 1337,
+  "steps": {
+    "dataset": {
+      "decision": {
+        "forced": false,
+        "mode": "compute",
+        "reason": "Generated raw+dataset artifacts via pipeline.run_all(...).",
+        "used_manifest": false
+      },
+      "inputs": {
+        "cfg_path": "C:\\Users\\Mart\u00edn\\Desktop\\inkswarm-core\\usul-inkswarm-detectlab\\configs\\skynet_smoke.yaml",
+        "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+        "params": {
+          "event": "login_attempt"
+        },
+        "run_id": "RR2_MVP_GIT_B_0002",
+        "toggles": {
+          "force": false,
+          "reuse_if_exists": true
+        }
+      },
+      "name": "dataset",
+      "notes": [],
+      "outputs": {
+        "dataset_time_eval": {
+          "exists": true,
+          "kind": "dataset_time_eval",
+          "path": "runs\\RR2_MVP_GIT_B_0002\\dataset\\login_attempt\\time_eval.parquet"
+        },
+        "dataset_train": {
+          "exists": true,
+          "kind": "dataset_train",
+          "path": "runs\\RR2_MVP_GIT_B_0002\\dataset\\login_attempt\\train.parquet"
+        },
+        "dataset_user_holdout": {
+          "exists": true,
+          "kind": "dataset_user_holdout",
+          "path": "runs\\RR2_MVP_GIT_B_0002\\dataset\\login_attempt\\user_holdout.parquet"
+        },
+        "raw_checkout_attempt": {
+          "exists": true,
+          "kind": "raw_checkout_attempt",
+          "path": "runs\\RR2_MVP_GIT_B_0002\\raw\\checkout_attempt.parquet"
+        },
+        "raw_login_attempt": {
+          "exists": true,
+          "kind": "raw_login_attempt",
+          "path": "runs\\RR2_MVP_GIT_B_0002\\raw\\login_attempt.parquet"
+        },
+        "run_dir": {
+          "exists": true,
+          "kind": "run_dir",
+          "path": "runs\\RR2_MVP_GIT_B_0002"
+        }
+      },
+      "status": "ok",
+      "summary": {}
+    }
+  },
+  "timezone": "America/Argentina/Buenos_Aires"
+}

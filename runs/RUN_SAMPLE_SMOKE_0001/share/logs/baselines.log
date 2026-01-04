@@ -1,0 +1,16 @@
+[baselines] start run_id=RUN_SAMPLE_SMOKE_0001 out_dir=runs\RUN_SAMPLE_SMOKE_0001\models\login_attempt\baselines
+[baselines] label=label_replicators train_rows=8142
+[baselines] fit start label=label_replicators model=logreg
+[baselines] fit ok label=label_replicators model=logreg
+[baselines] fit start label=label_replicators model=rf
+[baselines] fit ok label=label_replicators model=rf
+[baselines] label=label_the_mule train_rows=8142
+[baselines] fit start label=label_the_mule model=logreg
+[baselines] fit ok label=label_the_mule model=logreg
+[baselines] fit start label=label_the_mule model=rf
+[baselines] fit ok label=label_the_mule model=rf
+[baselines] label=label_the_chameleon train_rows=8142
+[baselines] fit start label=label_the_chameleon model=logreg
+[baselines] fit ok label=label_the_chameleon model=logreg
+[baselines] fit start label=label_the_chameleon model=rf
+[baselines] fit ok label=label_the_chameleon model=rf

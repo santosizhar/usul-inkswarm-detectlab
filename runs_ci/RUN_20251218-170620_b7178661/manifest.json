@@ -1,0 +1,100 @@
+{
+  "artifacts": {
+    "dataset/checkout_attempt/time_eval": {
+      "content_hash": "5276a0201c80bde36e4a1c3071e9ebefadb7ef2adb6c93abb6f1ae6a8f84d08a",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/dataset/checkout_attempt/time_eval.parquet",
+      "rows": 9
+    },
+    "dataset/checkout_attempt/train": {
+      "content_hash": "6f17468713b5a57eb9daeb34c7da9ba5f05f10547ec2ed3c1b8ddc342ec700ab",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/dataset/checkout_attempt/train.parquet",
+      "rows": 31
+    },
+    "dataset/checkout_attempt/user_holdout": {
+      "content_hash": "0fffd52fdae6b4d4306e610045e968b5c73fc3d8474bb45ce61a9eb53db0947d",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/dataset/checkout_attempt/user_holdout.parquet",
+      "rows": 8
+    },
+    "dataset/login_attempt/time_eval": {
+      "content_hash": "bda2d79b34f73e04c915015ece13b291bd3b3ad81eef446ce62c85b9fd5c4b16",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/dataset/login_attempt/time_eval.parquet",
+      "rows": 37
+    },
+    "dataset/login_attempt/train": {
+      "content_hash": "5ec14c008e62dc04d0edfc11b865847fbb0e8a234a5e93fadb6e0834d8bd85bd",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/dataset/login_attempt/train.parquet",
+      "rows": 206
+    },
+    "dataset/login_attempt/user_holdout": {
+      "content_hash": "ab1d68cb9558c79bf11f4423ec36eea5e1bd7d832d9f8d9a1efe79599d822ac0",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/dataset/login_attempt/user_holdout.parquet",
+      "rows": 23
+    },
+    "raw/checkout_attempt": {
+      "content_hash": "1c27dd9e0c49c0122efa870687b4226e365fa772b7cee9ef5ab2c381aa19fecb",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/raw/checkout_attempt.parquet",
+      "rows": 48
+    },
+    "raw/login_attempt": {
+      "content_hash": "7067ae2c891471103e099fc30bfe98e6c0ad5328d868b04aa338c5d295c139ac",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_20251218-170620_b7178661/raw/login_attempt.parquet",
+      "rows": 266
+    }
+  },
+  "code": {
+    "github_sha": null
+  },
+  "config_hash": "b71786618bf805696d8d0edaf0810bdaaa648be4ad480999c2650bf23c7f93a9",
+  "dataset": {
+    "canonical_sort_keys": [
+      "event_ts",
+      "user_id",
+      "event_id"
+    ],
+    "checkout_attempt": {
+      "boundary_ts_ba": "2025-12-01T19:21:20.700000-03:00",
+      "holdout_users": 3
+    },
+    "login_attempt": {
+      "boundary_ts_ba": "2025-12-01T20:19:15.700000-03:00",
+      "holdout_users": 6
+    },
+    "time_split": 0.85,
+    "user_holdout": 0.15
+  },
+  "generator_meta": {
+    "campaigns": [
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C01",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "REPLICATORS"
+        ],
+        "start_hour_index": 12,
+        "volume_multiplier": 2.0
+      }
+    ]
+  },
+  "run_id": "RUN_20251218-170620_b7178661",
+  "schema_version": "v1",
+  "seed": 1337,
+  "timezone": "America/Argentina/Buenos_Aires"
+}

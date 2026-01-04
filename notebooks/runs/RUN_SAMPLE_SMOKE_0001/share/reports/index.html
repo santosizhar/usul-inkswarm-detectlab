@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Inkswarm DetectLab — MVP Results Viewer</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <div class="title">Inkswarm DetectLab — MVP Results Viewer</div>
+      <div class="subtitle">Stakeholder-friendly comparison of up to 5 runs — <b>user_holdout</b> = generalization to new users (primary), <b>time_eval</b> = time drift check (secondary).</div>
+      <div class="meta">Generated: 2025-12-23T03:57:24Z</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="controls">
+      <div class="control">
+        <label for="metric">View focus</label>
+        <select id="metric">
+          <option value="user_holdout" selected>User Holdout (primary)</option>
+          <option value="time_eval">Time Eval (drift check)</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="detail">Detail level</label>
+        <select id="detail">
+          <option value="summary">Summary</option>
+          <option value="detailed">Detailed</option>
+        </select>
+      </div>
+<div class="control">
+  <label for="goto">Go to run</label>
+  <select id="goto">
+    <option value="" selected>Select a run…</option>
+  </select>
+</div>
+      <div class="hint">
+        Tip: Share this folder as-is. Open <code>index.html</code> in any modern browser.
+      </div>
+</section>
+
+<section class="banner" id="overview">
+  <span class="badge">Truth split</span>
+  <div><b>User Holdout</b> is the primary evaluation (generalization). <b>Time Eval</b> is the drift check.</div>
+</section>
+
+<div id="content"></div>
+
+    <section class="foot">
+      <h2>How to interpret</h2>
+      <ul>
+        <li><b>PR-AUC</b> (higher is better) is a good headline metric for rare positives.</li>
+        <li><b>Recall @ 1% FPR</b> shows how many true positives you catch while keeping false alarms low.</li>
+        <li><b>Time Eval</b> tests stability over time; <b>User Holdout</b> tests generalization to new users.</li>
+        <li><b>Run signature</b> shows config hash and (if available) code hash for traceability.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

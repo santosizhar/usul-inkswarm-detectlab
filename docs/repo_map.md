@@ -12,8 +12,7 @@ This is a curated map of the repo for portfolio/code-review readers.
 - `scripts/` — helper scripts (RR, make_share_zip, etc.)
 - `tests/` — pytest unit tests
 - `notebooks/` — Jupyter notebooks (optional exploration)
-- `runs/` / `runs_ci/` — **local outputs** (ignored; not source-controlled)
-- `examples/fixtures/runs_ci/` — small committed fixture used for documentation/examples
+- `runs/` / `runs_ci/` — sample outputs + CI fixtures (not source of truth)
 
 ---
 

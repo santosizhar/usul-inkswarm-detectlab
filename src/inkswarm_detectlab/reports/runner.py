@@ -10,6 +10,7 @@ from ..config import AppConfig
 from ..synthetic.label_defs import as_markdown_table as _labels_markdown_table
 from ..io.paths import run_dir as run_dir_for, reports_dir as reports_dir_for
 from ..io.manifest import read_manifest, write_manifest
+from ..utils.safe_io import safe_read_json, safe_read_text
 
 
 @dataclass(frozen=True)
@@ -24,22 +25,6 @@ def _now_ba_iso() -> str:
     # We store offset -03:00 as per project convention.
     now = _dt.datetime.utcnow() - _dt.timedelta(hours=3)
     return now.replace(microsecond=0).isoformat() + "-03:00"
-
-
-def _safe_read_text(path: Path) -> Optional[str]:
-    try:
-        return path.read_text(encoding="utf-8")
-    except Exception:
-        return None
-
-
-def _safe_read_json(path: Path) -> Optional[dict]:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
 def _extract_baseline_highlights(metrics: dict) -> dict:
     """
     Normalize metrics.json into a compact highlights object:
@@ -239,14 +224,14 @@ def generate_final_report_for_run(cfg: AppConfig, run_id: str, *, force: bool = 
     manifest = read_manifest(rdir)
     # Feature manifest
     fman_path = rdir / "features" / "login_attempt" / "feature_manifest.json"
-    feature_manifest = _safe_read_json(fman_path)
+    feature_manifest = safe_read_json(fman_path)
 
     # Baselines
     bdir = rdir / "models" / "login_attempt" / "baselines"
     metrics_path = bdir / "metrics.json"
     report_path = bdir / "report.md"
-    baseline_metrics = _safe_read_json(metrics_path)
-    baseline_report_md = _safe_read_text(report_path)
+    baseline_metrics = safe_read_json(metrics_path)
+    baseline_report_md = safe_read_text(report_path)
 
     # Validation status section: be explicit about deferred validation
     validation_lines = []

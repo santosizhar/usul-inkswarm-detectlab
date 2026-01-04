@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Executive Summary</title>
+<style>body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; color: #111; }
+    h1 { font-size: 28px; margin: 0 0 12px; }
+    h2 { font-size: 20px; margin: 18px 0 8px; }
+    h3 { font-size: 16px; margin: 14px 0 6px; }
+    p, li { font-size: 14px; line-height: 1.5; }
+    code { background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 6px; }
+    pre { background: rgba(0,0,0,0.06); padding: 12px; border-radius: 12px; overflow-x: auto; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    hr { border: 0; border-top: 1px solid rgba(0,0,0,0.12); margin: 16px 0; }</style>
+</head>
+<body>
+<h1>Executive Summary</h1>
+
+<h2>How to open</h2>
+<ul>
+<li>Open the bundle UI: <code>share/ui_bundle/index.html</code></li>
+<li>Or read this report: <code>reports/EXEC_SUMMARY.html</code></li>
+</ul>
+
+<h2>What to trust (truth split)</h2>
+<ul>
+<li><b>user_holdout</b> = primary truth (generalization to new users)</li>
+<li><b>time_eval</b> = drift check (time stability)</li>
+</ul>
+
+<h2>Best baseline (best-effort)</h2>
+<ul>
+<li>Selected by max <b>user_holdout PR-AUC</b> (if available): <b>—</b></li>
+</ul>
+
+<h2>Recommended actions</h2>
+
+<ul>
+<li>If <b>time_eval</b> is materially worse than <b>user_holdout</b>, treat it as <b>drift risk</b> → consider retraining with newer data, recalibrating thresholds, or deploying drift monitors.</li>
+<li>If a slice shows materially worse performance or instability → consider slice-specific mitigations (rules, extra features, targeted data collection).</li>
+<li>If model quality is acceptable but ops cost is high → consider tightening thresholds, adding guardrails, or using a simpler baseline in low-risk paths.</li>
+<li><b>Reproducibility is PROVISIONAL</b> (RR evidence pending) → run RR-0001/0002 on Windows/Py3.12 and record evidence before any high-stakes deployment.</li>
+<li><b>D-0004 validation is deferred</b> → run the deferred validation and record outcomes before relying on that baseline claim.</li>
+</ul>
+</body>
+</html>

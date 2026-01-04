@@ -57,9 +57,8 @@ If you used a different run id than `RUN_XXX_0005`, set the `run_id` variable in
   Lists schemas and column contracts (quick tour of tables).
 
 - `notebooks/01_placeholder_data_inspection.ipynb`  
-  Reads a chosen `run_id` (set in the first cells) and displays sample rows.
-
-Tip: generate a tiny run with `detectlab run quick` first, then point the notebook at that run folder.
+  Reads the placeholder run id from `inkswarm_detectlab.utils.run_id.PLACEHOLDER_RUN_ID` and displays sample rows.  
+  If you want to inspect a real run, replace the `run_dir` assignment to point to your run folder.
 
 - `notebooks/02_featurelab_login_attempt.ipynb`  
   Re-runs the FeatureLab builder for `login_attempt` (idempotent if outputs exist) and displays the resulting feature table.

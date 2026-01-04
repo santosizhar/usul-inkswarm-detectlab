@@ -1,0 +1,159 @@
+{
+  "artifacts": {
+    "dataset/checkout_attempt/time_eval": {
+      "content_hash": "24045cb9a96427e8960fb4a3e9638a8438d9140310403a53854beba7e870aea6",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/dataset/checkout_attempt/time_eval.parquet",
+      "rows": 5
+    },
+    "dataset/checkout_attempt/train": {
+      "content_hash": "9bd166b69e74b51fee768f6f275499fc36e9dacbf1ae9e577cff6393ae575927",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/dataset/checkout_attempt/train.parquet",
+      "rows": 26
+    },
+    "dataset/checkout_attempt/user_holdout": {
+      "content_hash": "ddb9b4f5e0860a823fd994037ad63605d6c18bcd4b03f6cbd5b3a2f652251176",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/dataset/checkout_attempt/user_holdout.parquet",
+      "rows": 3
+    },
+    "dataset/login_attempt/time_eval": {
+      "content_hash": "68e7c70068b995ab7d29f2e0e5785e125e51932d51df09f991fe0a5fdcc8c35a",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/dataset/login_attempt/time_eval.parquet",
+      "rows": 22
+    },
+    "dataset/login_attempt/train": {
+      "content_hash": "fea99e63b47642cc96db2f3154f6d3f56fa283a27a16dbff369a216529ea19de",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/dataset/login_attempt/train.parquet",
+      "rows": 156
+    },
+    "dataset/login_attempt/user_holdout": {
+      "content_hash": "707cecf63a9bf4f162ffeda58f4d690cfd921dc1689b3bf2f42e4010bb99a5d0",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/dataset/login_attempt/user_holdout.parquet",
+      "rows": 24
+    },
+    "features/login_attempt/features": {
+      "content_hash": "f7b41c149a3f4be711c117819f1bc0368786c91692952514782c51f11b132093",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/features/login_attempt/features.parquet",
+      "rows": 202
+    },
+    "features/login_attempt/manifest": {
+      "content_hash": "4ce7aa65d68dc06852f9b39b80365a77045cc311de5850b2b623d25bf31c2b1f",
+      "format": "json",
+      "note": null,
+      "path": "RR_FAST_001_A/features/login_attempt/feature_manifest.json",
+      "rows": null
+    },
+    "features/login_attempt/spec": {
+      "content_hash": "3134191d80e4647c3c90b369243923b39160aab26e114e0be544b2fbdfe1ac5d",
+      "format": "json",
+      "note": null,
+      "path": "RR_FAST_001_A/features/login_attempt/feature_spec.json",
+      "rows": null
+    },
+    "logs/baselines": {
+      "content_hash": "a97ba17fcd62b1ff7a3a59a5c7693c7ab810f46d0f6ebbf4fe464ba471fb34cf",
+      "format": "text",
+      "note": "UNCOMMITTED",
+      "path": "RR_FAST_001_A/logs/baselines.log",
+      "rows": null
+    },
+    "models/login_attempt/baselines/metrics": {
+      "content_hash": "6c455bcfd6b37ba3babe453f7929af9939bf9cfdd92dd26ef322fe8e60252df7",
+      "format": "json",
+      "note": "UNCOMMITTED",
+      "path": "RR_FAST_001_A/models/login_attempt/baselines/metrics.json",
+      "rows": null
+    },
+    "models/login_attempt/baselines/report": {
+      "content_hash": "dc6241b709570e012b4ea76d73b9e8de071b1192432655e21bdb5db8abe34980",
+      "format": "md",
+      "note": "UNCOMMITTED",
+      "path": "RR_FAST_001_A/models/login_attempt/baselines/report.md",
+      "rows": null
+    },
+    "raw/checkout_attempt": {
+      "content_hash": "1e78e852f0b371d6f7c839979a66645806fde2a23b8624a93e37d9ce38aaf397",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/raw/checkout_attempt.parquet",
+      "rows": 34
+    },
+    "raw/login_attempt": {
+      "content_hash": "bb7cecd2854b74bac81ea0672dc1429a7ea88223c562790a023c07bfc55a2280",
+      "format": "parquet",
+      "note": null,
+      "path": "RR_FAST_001_A/raw/login_attempt.parquet",
+      "rows": 202
+    },
+    "reports/eval_slices_login_attempt": {
+      "content_hash": "8b1da85d5bd0ea8e8a1cbb7e23f208352e19d6a1fa9511a802e1f8741ca39028",
+      "path": "runs/RR_FAST_001_A/reports/eval_slices_login_attempt.md"
+    },
+    "reports/eval_slices_login_attempt_json": {
+      "content_hash": "dbeb1de03145f01081f65f70e849c81f9fc9a19ab9887a77ccb08677a01b5078",
+      "path": "runs/RR_FAST_001_A/reports/eval_slices_login_attempt.json"
+    },
+    "reports/eval_stability_login_attempt": {
+      "content_hash": "7cc645c7750c5088f5856795152a4e5d9eb47a863574bcf83c6eccae5c49adc5",
+      "path": "runs/RR_FAST_001_A/reports/eval_stability_login_attempt.md"
+    },
+    "reports/eval_stability_login_attempt_json": {
+      "content_hash": "dbeb1de03145f01081f65f70e849c81f9fc9a19ab9887a77ccb08677a01b5078",
+      "path": "runs/RR_FAST_001_A/reports/eval_stability_login_attempt.json"
+    }
+  },
+  "code": {
+    "github_sha": null
+  },
+  "config_hash": "d86322c149e1bbf789e8b67583982ebae1ce20a335f91fde53c362ded81483f2",
+  "dataset": {
+    "canonical_sort_keys": [
+      "event_ts",
+      "user_id",
+      "event_id"
+    ],
+    "checkout_attempt": {
+      "boundary_ts_ba": "2025-12-01T20:39:12.200000-03:00",
+      "holdout_users": 3
+    },
+    "login_attempt": {
+      "boundary_ts_ba": "2025-12-01T20:22:38.200000-03:00",
+      "holdout_users": 7
+    },
+    "time_split": 0.85,
+    "user_holdout": 0.15
+  },
+  "generator_meta": {
+    "campaigns": [
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C01",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "REPLICATORS",
+          "THE_MULE"
+        ],
+        "start_hour_index": 0,
+        "volume_multiplier": 2.0
+      }
+    ]
+  },
+  "run_id": "RR_FAST_001_A",
+  "schema_version": "v1",
+  "seed": 1337,
+  "timezone": "America/Argentina/Buenos_Aires"
+}

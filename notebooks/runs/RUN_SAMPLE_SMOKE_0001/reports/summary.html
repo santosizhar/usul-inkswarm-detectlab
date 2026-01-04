@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Summary</title>
+<style>body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; color: #111; }
+    h1 { font-size: 28px; margin: 0 0 12px; }
+    h2 { font-size: 20px; margin: 18px 0 8px; }
+    h3 { font-size: 16px; margin: 14px 0 6px; }
+    p, li { font-size: 14px; line-height: 1.5; }
+    code { background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 6px; }
+    pre { background: rgba(0,0,0,0.06); padding: 12px; border-radius: 12px; overflow-x: auto; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    hr { border: 0; border-top: 1px solid rgba(0,0,0,0.12); margin: 16px 0; }</style>
+</head>
+<body>
+<p>&lt;!-- EXEC_SUMMARY:START --&gt;</p>
+
+<h2>Executive summary</h2>
+
+<ul>
+<li>Open <code>reports/EXEC_SUMMARY.html</code> for a stakeholder-friendly view.</li>
+<li>Truth split: <b>user_holdout = primary</b>, <b>time_eval = drift check</b>.</li>
+<li>Best baseline (max user_holdout PR-AUC, if available): <b>—</b>.</li>
+</ul>
+
+<p>&lt;!-- EXEC_SUMMARY:END --&gt;</p>
+<h1>Inkswarm DetectLab — Run Summary</h1>
+
+<h2>Identity</h2>
+<ul>
+<li>run_id: <code>RUN_SAMPLE_SMOKE_0001</code></li>
+<li>timezone: <code>America/Argentina/Buenos_Aires</code></li>
+<li>schema_version: <code>v1</code></li>
+</ul>
+
+<h2>Raw tables</h2>
+<ul>
+<li>login_attempt rows: 10,802</li>
+<li>checkout_attempt rows: 1,106</li>
+</ul>
+
+<h2>Labels (login_attempt)</h2>
+<ul>
+<li>overall attack prevalence (any label): 0.0568</li>
+<li>label_replicators: 0.0250</li>
+<li>label_the_mule: 0.0124</li>
+<li>label_the_chameleon: 0.0198</li>
+</ul>
+
+<h3>Overlaps</h3>
+<ul>
+<li>REPLICATORS &amp; THE_MULE: 0</li>
+<li>REPLICATORS &amp; THE_CHAMELEON: 2</li>
+<li>THE_MULE &amp; THE_CHAMELEON: 2</li>
+<li>triple overlap: 0</li>
+</ul>
+
+<h2>Checkout (checkout_attempt)</h2>
+<ul>
+<li>adverse rate (failure or review): 0.0054</li>
+</ul>
+
+<h2>Dataset splits</h2>
+<ul>
+<li>time boundary (America/Argentina/Buenos_Aires): 2025-12-06T22:45:28.350000-03:00</li>
+<li>holdout users: 27 (14.9% of 181 unique users)</li>
+</ul>
+
+<h2>Outputs written</h2>
+<ul>
+<li>dataset/checkout_attempt/time_eval: <code>RUN_SAMPLE_SMOKE_0001\dataset\checkout_attempt\time_eval.parquet</code> (parquet) — 138 rows</li>
+<li>dataset/checkout_attempt/train: <code>RUN_SAMPLE_SMOKE_0001\dataset\checkout_attempt\train.parquet</code> (parquet) — 799 rows</li>
+<li>dataset/checkout_attempt/user_holdout: <code>RUN_SAMPLE_SMOKE_0001\dataset\checkout_attempt\user_holdout.parquet</code> (parquet) — 169 rows</li>
+<li>dataset/login_attempt/time_eval: <code>RUN_SAMPLE_SMOKE_0001\dataset\login_attempt\time_eval.parquet</code> (parquet) — 1,184 rows</li>
+<li>dataset/login_attempt/train: <code>RUN_SAMPLE_SMOKE_0001\dataset\login_attempt\train.parquet</code> (parquet) — 8,142 rows</li>
+<li>dataset/login_attempt/user_holdout: <code>RUN_SAMPLE_SMOKE_0001\dataset\login_attempt\user_holdout.parquet</code> (parquet) — 1,476 rows</li>
+<li>features/login_attempt/features: <code>RUN_SAMPLE_SMOKE_0001\features\login_attempt\features.parquet</code> (parquet) — 10,802 rows</li>
+<li>features/login_attempt/manifest: <code>RUN_SAMPLE_SMOKE_0001\features\login_attempt\feature_manifest.json</code> (json)</li>
+<li>features/login_attempt/spec: <code>RUN_SAMPLE_SMOKE_0001\features\login_attempt\feature_spec.json</code> (json)</li>
+<li>raw/checkout_attempt: <code>RUN_SAMPLE_SMOKE_0001\raw\checkout_attempt.parquet</code> (parquet) — 1,106 rows</li>
+<li>raw/login_attempt: <code>RUN_SAMPLE_SMOKE_0001\raw\login_attempt.parquet</code> (parquet) — 10,802 rows</li>
+</ul>
+
+<p>&lt;!-- BASELINES_LOGIN_ATTEMPT_START --&gt;</p>
+
+<h2>Baselines (login_attempt)</h2>
+
+<p>This section summarizes baseline performance for the current run.</p>
+<ul>
+<li>detailed baseline report: <code>runs\RUN_SAMPLE_SMOKE_0001\reports\baselines_login_attempt.md</code></li>
+<li>baselines log: <code>runs\RUN_SAMPLE_SMOKE_0001\logs\baselines.log</code></li>
+</ul>
+
+<p>| label | model | train PR-AUC | train thr | train FPR | train recall | time_eval PR-AUC | time_eval FPR | time_eval recall | user_holdout PR-AUC | user_holdout FPR | user_holdout recall |</p>
+<p>|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|</p>
+<p>| label_replicators | logreg | 0.0556 | 0.857037 | 0.0100 | 0.0287 | 0.0214 | 0.0181 | 0.0000 | 0.0256 | 0.0069 | 0.0000 |</p>
+<p>| label_replicators | rf | 1.0000 | 0.0766667 | 0.0097 | 1.0000 | 0.0224 | 0.1002 | 0.0385 | 0.0257 | 0.0763 | 0.0571 |</p>
+<p>| label_the_mule | logreg | 0.0441 | 0.942848 | 0.0099 | 0.0206 | 0.0146 | 0.0137 | 0.0000 | 0.0148 | 0.0130 | 0.0000 |</p>
+<p>| label_the_mule | rf | 1.0000 | 0.0533333 | 0.0089 | 1.0000 | 0.0195 | 0.0883 | 0.0556 | 0.0164 | 0.0446 | 0.1053 |</p>
+<p>| label_the_chameleon | logreg | 0.0478 | 0.931153 | 0.0099 | 0.0201 | 0.0457 | 0.0165 | 0.0323 | 0.0196 | 0.0049 | 0.0000 |</p>
+<p>| label_the_chameleon | rf | 0.9999 | 0.0633333 | 0.0093 | 1.0000 | 0.0315 | 0.0755 | 0.0968 | 0.0233 | 0.0583 | 0.0294 |</p>
+
+<p>&lt;!-- BASELINES_LOGIN_ATTEMPT_END --&gt;</p>
+
+</body>
+</html>

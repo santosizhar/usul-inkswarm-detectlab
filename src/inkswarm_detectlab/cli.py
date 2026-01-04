@@ -12,7 +12,6 @@ from .config import load_config
 from .pipeline import generate_raw, build_dataset, run_all
 from .features import build_login_features_for_run, build_checkout_features_for_run
 from .models import run_login_baselines_for_run
-from .quality.cluster import compute_cluster_quality, write_cluster_quality_artifacts
 from .ui.summarize import write_ui_summary
 from .ui.bundle import export_ui_bundle
 from .mvp.orchestrator import run_mvp
@@ -58,7 +57,6 @@ features_app = typer.Typer(add_completion=False, help="Feature building")
 baselines_app = typer.Typer(add_completion=False, help="Baseline models")
 ui_app = typer.Typer(add_completion=False, help="Shareable UI bundles (static HTML)")
 eval_app = typer.Typer(add_completion=False, help="Evaluation diagnostics (slices + stability)")
-quality_app = typer.Typer(add_completion=False, help="Quality scorecards (cluster + dataset)")
 cache_app = typer.Typer(add_completion=False, help="Inspect and maintain local caches")
 
 
@@ -71,7 +69,6 @@ app.add_typer(features_app, name="features")
 app.add_typer(baselines_app, name="baselines")
 app.add_typer(ui_app, name="ui")
 app.add_typer(eval_app, name="eval")
-app.add_typer(quality_app, name="quality")
 app.add_typer(cache_app, name="cache")
 
 
@@ -353,39 +350,6 @@ def run_skynet(
     _print_artifacts(rdir)
 
 
-
-
-@run_app.command("quick")
-def run_quick_cmd(
-    *,
-    run_id: Optional[str] = typer.Option(None, "--run-id", help="Override run_id (optional). Recommended to omit."),
-    force: bool = typer.Option(False, "--force", help="Overwrite existing artifacts where supported."),
-    config: Path = typer.Option(Path("configs/skynet_smoke.yaml"), "--config", "-c", help="Path to YAML config (defaults to configs/skynet_smoke.yaml)."),
-):
-    """Fastest end-to-end path for first-time users.
-
-    Equivalent to `detectlab run mvp -c configs/skynet_smoke.yaml`.
-    """
-    _require_pyarrow()
-    rdir, summary = run_mvp(cfg_path=config, run_id=run_id, force=force)
-
-    typer.echo(str(rdir))
-    for row in summary.get("steps", []):
-        status = row.get("status")
-        name = row.get("name")
-        msg = row.get("message") or ""
-        if status == "ok":
-            typer.echo(f"OK   - {name}{(': '+ msg) if msg else ''}")
-        elif status == "skipped":
-            typer.echo(f"SKIP - {name}{(': '+ msg) if msg else ''}")
-        else:
-            typer.echo(f"FAIL - {name}{(': '+ msg) if msg else ''}")
-
-    _print_artifacts(rdir)
-    if summary.get("status") != "ok":
-        raise typer.Exit(code=1)
-
-
 @run_app.command("mvp")
 def run_mvp_cmd(
     config: Optional[Path] = typer.Argument(None),
@@ -417,11 +381,11 @@ def run_mvp_cmd(
         name = row.get("name")
         msg = row.get("message") or ""
         if status == "ok":
-            typer.echo(f"OK   - {name}{(': '+ msg) if msg else ''}")
+            typer.echo(f"OK   - {name}{(': ' + msg) if msg else ''}")
         elif status == "skipped":
-            typer.echo(f"SKIP - {name}{(': '+ msg) if msg else ''}")
+            typer.echo(f"SKIP - {name}{(': ' + msg) if msg else ''}")
         else:
-            typer.echo(f"FAIL - {name}{(': '+ msg) if msg else ''}")
+            typer.echo(f"FAIL - {name}{(': ' + msg) if msg else ''}")
 
     _print_artifacts(rdir)
     if summary.get("status") != "ok":
@@ -462,39 +426,6 @@ def ui_export(
 def main():
     app()
 
-
-
-@quality_app.command("cluster")
-def quality_cluster(
-    data_path: Path = typer.Option(..., "--data", help="Input dataset (parquet/csv/jsonl)"),
-    out_dir: Path = typer.Option(..., "--out", help="Output directory for quality artifacts"),
-    cluster_col: str = typer.Option("cluster", "--cluster-col", help="Column containing cluster assignments"),
-    label_col: Optional[str] = typer.Option(None, "--label-col", help="Optional ground-truth label column (enables ARI/NMI)"),
-    feature_cols: list[str] = typer.Option([], "--feature-col", help="Feature column to include (repeatable). If omitted, auto-select numeric-like columns."),
-    sample_n: Optional[int] = typer.Option(None, "--sample-n", help="Optional sample size for speed"),
-):
-    """Compute a lightweight cluster-quality scorecard.
-
-    This exists because cluster noise is one of the most common failure modes in this project family.
-    It produces:
-      - cluster_quality.json
-      - cluster_quality.md
-    """
-    _require_pyarrow()
-    from .io.tables import read_auto  # local import keeps CLI import time small
-
-    df = read_auto(data_path)
-    fcols = feature_cols if feature_cols else None
-    res = compute_cluster_quality(
-        df,
-        cluster_col=cluster_col,
-        label_col=label_col,
-        feature_cols=fcols,
-        sample_n=sample_n,
-    )
-    p_json, p_md = write_cluster_quality_artifacts(out_dir, res)
-    typer.echo(f"Wrote: {p_json}")
-    typer.echo(f"Wrote: {p_md}")
 
 if __name__ == "__main__":
     main()

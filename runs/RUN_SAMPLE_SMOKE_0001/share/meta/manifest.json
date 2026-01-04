@@ -1,0 +1,455 @@
+{
+  "artifacts": {
+    "dataset/checkout_attempt/time_eval": {
+      "content_hash": "f7a8c59f43cb2947600cb5e5d649cfa00bd4292f10a25153ec357ef7f63b3e08",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/time_eval.parquet",
+      "rows": 138
+    },
+    "dataset/checkout_attempt/train": {
+      "content_hash": "6016709306057e8289d683bfa4768a0d2bc9085ae32338d443a5aa65141169e8",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/train.parquet",
+      "rows": 799
+    },
+    "dataset/checkout_attempt/user_holdout": {
+      "content_hash": "2790ffecef12e43bd7d03545529798cebf8dc57efcf7aac0bc700b0006e14f04",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/checkout_attempt/user_holdout.parquet",
+      "rows": 169
+    },
+    "dataset/login_attempt/time_eval": {
+      "content_hash": "976a72584a86f575d630737dc4ea5a71c8a390e165f263e1efb8c6c942e41aaf",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/time_eval.parquet",
+      "rows": 1184
+    },
+    "dataset/login_attempt/train": {
+      "content_hash": "177d73a3a049195a2029ba0a851528365a3046b7b27fbcaf64664a4000928219",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/train.parquet",
+      "rows": 8142
+    },
+    "dataset/login_attempt/user_holdout": {
+      "content_hash": "f27b14d6a22e0c18e9668c6779cbf41bc287beaf98006f40913cfc40883ddf48",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/dataset/login_attempt/user_holdout.parquet",
+      "rows": 1476
+    },
+    "features/login_attempt/features": {
+      "content_hash": "139c2534fb1c5452cdc3d48aabda14561e98bdbecfe5f702d4bd24a49ebf2090",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/features.parquet",
+      "rows": 10802
+    },
+    "features/login_attempt/manifest": {
+      "content_hash": "d047f0f48396dca46077bac51cb6e075ddb9de9ee9219a2bd77b1bf8e5b905f9",
+      "format": "json",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_manifest.json",
+      "rows": null
+    },
+    "features/login_attempt/spec": {
+      "content_hash": "1199fb760b8aa0a24dfd513397df00947cfab81154f3b60e6f0c6e41ac1bfe35",
+      "format": "json",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/features/login_attempt/feature_spec.json",
+      "rows": null
+    },
+    "logs/baselines": {
+      "content_hash": "43a118393cbf0c688ebd34f528dcdccc42a12269298e36ef7c8c3c5e73501fa4",
+      "format": "text",
+      "note": "UNCOMMITTED",
+      "path": "RUN_SAMPLE_SMOKE_0001\\logs\\baselines.log",
+      "rows": null
+    },
+    "models/login_attempt/baselines/metrics": {
+      "content_hash": "591d0e8862971186190332bb88b82b16c0785045f446e49f51a0b3017714582c",
+      "format": "json",
+      "note": "UNCOMMITTED",
+      "path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\metrics.json",
+      "rows": null
+    },
+    "models/login_attempt/baselines/report": {
+      "content_hash": "099052e906434130991f54087727857c213a18653c4edec976a97a9cd004abae",
+      "format": "md",
+      "note": "UNCOMMITTED",
+      "path": "RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\report.md",
+      "rows": null
+    },
+    "raw/checkout_attempt": {
+      "content_hash": "7abf9945c19ffd366b43d313b3fa000ecbb54e14533e98251770862822eddb40",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/raw/checkout_attempt.parquet",
+      "rows": 1106
+    },
+    "raw/login_attempt": {
+      "content_hash": "0deb2bdd4ad61ed00134e5f5f31411e9ad0ffef42c13551b41a649b3ddf74c82",
+      "format": "parquet",
+      "note": null,
+      "path": "RUN_SAMPLE_SMOKE_0001/raw/login_attempt.parquet",
+      "rows": 10802
+    },
+    "reports/eval_slices_login_attempt": {
+      "content_hash": "c80e8b0f0c847799fa0effe3dbd4fa5250305aa7ff22b6dabb849e9dc07b6d31",
+      "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_slices_login_attempt.md"
+    },
+    "reports/eval_slices_login_attempt_json": {
+      "content_hash": "6bcf5bdfc26f2558478f05e709d26f587a39d6b2f9676fc99b47a418bd23c18a",
+      "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_slices_login_attempt.json"
+    },
+    "reports/eval_stability_login_attempt": {
+      "content_hash": "543f218c1b648bc2a70ddfdb6f9e4d1dfd85f6aa9c2fcfb4daa9556a6d12183f",
+      "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_stability_login_attempt.md"
+    },
+    "reports/eval_stability_login_attempt_json": {
+      "content_hash": "6bcf5bdfc26f2558478f05e709d26f587a39d6b2f9676fc99b47a418bd23c18a",
+      "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_stability_login_attempt.json"
+    }
+  },
+  "code": {
+    "github_sha": null
+  },
+  "config_hash": "5d6e99bb3f83ea1d3907bcceed9774fa5f77170a10b2f5d5a7cfec8ea2c8dabb",
+  "dataset": {
+    "canonical_sort_keys": [
+      "event_ts",
+      "user_id",
+      "event_id"
+    ],
+    "checkout_attempt": {
+      "boundary_ts_ba": "2025-12-06T22:35:57.800000-03:00",
+      "holdout_users": 23
+    },
+    "login_attempt": {
+      "boundary_ts_ba": "2025-12-06T22:45:28.350000-03:00",
+      "holdout_users": 27
+    },
+    "time_split": 0.85,
+    "user_holdout": 0.15
+  },
+  "generator_meta": {
+    "campaigns": [
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C01",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "THE_MULE",
+          "THE_CHAMELEON"
+        ],
+        "start_hour_index": 16,
+        "volume_multiplier": 2.0
+      },
+      {
+        "attack_rate_multiplier": 1.0,
+        "campaign_id": "C02",
+        "campaign_type": "VOLUME_SPIKE",
+        "duration_hours": 1,
+        "playbooks": [
+          "REPLICATORS",
+          "THE_CHAMELEON"
+        ],
+        "start_hour_index": 144,
+        "volume_multiplier": 2.0
+      }
+    ]
+  },
+  "run_id": "RUN_SAMPLE_SMOKE_0001",
+  "schema_version": "v1",
+  "seed": 1337,
+  "steps": {
+    "baselines": {
+      "decision": {
+        "forced": false,
+        "mode": "reuse",
+        "reason": "Expected outputs exist on disk (no usable manifest step record).",
+        "used_manifest": false
+      },
+      "inputs": {
+        "cfg_path": "configs\\skynet_smoke.yaml",
+        "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+        "params": {
+          "event": "login_attempt"
+        },
+        "run_id": "RUN_SAMPLE_SMOKE_0001",
+        "toggles": {
+          "force": false,
+          "reuse_if_exists": true
+        }
+      },
+      "name": "baselines",
+      "notes": [
+        "Skipped training based on reuse policy."
+      ],
+      "outputs": {
+        "baselines_dir": {
+          "exists": true,
+          "kind": "baselines_dir",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines"
+        },
+        "metrics_json": {
+          "exists": true,
+          "kind": "metrics_json",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\metrics.json"
+        }
+      },
+      "status": "skipped",
+      "summary": {
+        "env": {
+          "pandas": "2.3.3",
+          "platform": "Windows-10-10.0.19045-SP0",
+          "pyarrow": "22.0.0",
+          "python": "3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]",
+          "sklearn": "1.8.0",
+          "threadpools": [
+            {
+              "architecture": "Haswell",
+              "filepath": "C:\\Users\\Mart\u00edn\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\numpy.libs\\libscipy_openblas64_-9e3e5a4229c1ca39f10dc82bba9e2b2b.dll",
+              "internal_api": "openblas",
+              "num_threads": 8,
+              "prefix": "libscipy_openblas",
+              "threading_layer": "pthreads",
+              "user_api": "blas",
+              "version": "0.3.30"
+            },
+            {
+              "filepath": "C:\\Users\\Mart\u00edn\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\sklearn\\.libs\\vcomp140.dll",
+              "internal_api": "openmp",
+              "num_threads": 8,
+              "prefix": "vcomp",
+              "user_api": "openmp",
+              "version": null
+            },
+            {
+              "architecture": "Haswell",
+              "filepath": "C:\\Users\\Mart\u00edn\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\site-packages\\scipy.libs\\libscipy_openblas-48c358d105077551cc9cc3ba79387ed5.dll",
+              "internal_api": "openblas",
+              "num_threads": 8,
+              "prefix": "libscipy_openblas",
+              "threading_layer": "pthreads",
+              "user_api": "blas",
+              "version": "0.3.29.dev"
+            }
+          ]
+        },
+        "n_failed": 0,
+        "n_ok": 6,
+        "time_eval_rows": 1184,
+        "train_rows": 8142,
+        "user_holdout_rows": 1476
+      }
+    },
+    "dataset": {
+      "decision": {
+        "forced": false,
+        "mode": "reuse",
+        "reason": "Manifest step record matches current config hash and outputs exist.",
+        "used_manifest": true
+      },
+      "inputs": {
+        "cfg_path": "configs\\skynet_smoke.yaml",
+        "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+        "params": {
+          "event": "login_attempt"
+        },
+        "run_id": "RUN_SAMPLE_SMOKE_0001",
+        "toggles": {
+          "force": false,
+          "reuse_if_exists": true
+        }
+      },
+      "name": "dataset",
+      "notes": [
+        "Skipped compute based on reuse policy."
+      ],
+      "outputs": {
+        "dataset_time_eval": {
+          "exists": true,
+          "kind": "dataset_time_eval",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\dataset\\login_attempt\\time_eval.parquet"
+        },
+        "dataset_train": {
+          "exists": true,
+          "kind": "dataset_train",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\dataset\\login_attempt\\train.parquet"
+        },
+        "dataset_user_holdout": {
+          "exists": true,
+          "kind": "dataset_user_holdout",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\dataset\\login_attempt\\user_holdout.parquet"
+        },
+        "raw_checkout_attempt": {
+          "exists": true,
+          "kind": "raw_checkout_attempt",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\raw\\checkout_attempt.parquet"
+        },
+        "raw_login_attempt": {
+          "exists": true,
+          "kind": "raw_login_attempt",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\raw\\login_attempt.parquet"
+        },
+        "run_dir": {
+          "exists": true,
+          "kind": "run_dir",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001"
+        }
+      },
+      "status": "skipped",
+      "summary": {}
+    },
+    "eval": {
+      "decision": {
+        "forced": false,
+        "mode": "compute",
+        "reason": "Ran eval via eval.runner.run_login_eval_for_run(...).",
+        "used_manifest": false
+      },
+      "inputs": {
+        "cfg_path": "configs\\skynet_smoke.yaml",
+        "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+        "params": {
+          "event": "login_attempt"
+        },
+        "run_id": "RUN_SAMPLE_SMOKE_0001",
+        "toggles": {
+          "force": false,
+          "reuse_if_exists": true
+        }
+      },
+      "name": "eval",
+      "notes": [
+        "Missing baselines directory: runs\\RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines\\baselines",
+        "No loadable baseline model artifacts found under: runs\\RUN_SAMPLE_SMOKE_0001\\models\\login_attempt\\baselines"
+      ],
+      "outputs": {
+        "eval_slices_json": {
+          "exists": true,
+          "kind": "eval_slices_json",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_slices_login_attempt.json"
+        },
+        "eval_slices_md": {
+          "exists": true,
+          "kind": "eval_slices_md",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_slices_login_attempt.md"
+        },
+        "eval_stability_json": {
+          "exists": true,
+          "kind": "eval_stability_json",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_stability_login_attempt.json"
+        },
+        "eval_stability_md": {
+          "exists": true,
+          "kind": "eval_stability_md",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports\\eval_stability_login_attempt.md"
+        },
+        "reports_dir": {
+          "exists": true,
+          "kind": "reports_dir",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\reports"
+        }
+      },
+      "status": "partial",
+      "summary": {}
+    },
+    "export": {
+      "decision": {
+        "forced": false,
+        "mode": "compute",
+        "reason": "Exported share bundle via ui.* + share.evidence.* helpers.",
+        "used_manifest": false
+      },
+      "inputs": {
+        "cfg_path": "configs\\skynet_smoke.yaml",
+        "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+        "params": {},
+        "run_id": "RUN_SAMPLE_SMOKE_0001",
+        "toggles": {
+          "force": false,
+          "reuse_if_exists": true
+        }
+      },
+      "name": "export",
+      "notes": [],
+      "outputs": {
+        "share_dir": {
+          "exists": true,
+          "kind": "share_dir",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\share"
+        },
+        "share_evidence_dir": {
+          "exists": false,
+          "kind": "share_evidence_dir",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\share\\evidence"
+        },
+        "share_exec_summary_md": {
+          "exists": false,
+          "kind": "share_exec_summary_md",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\share\\exec_summary.md"
+        },
+        "share_handover_md": {
+          "exists": false,
+          "kind": "share_handover_md",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\share\\handover.md"
+        },
+        "share_summary_md": {
+          "exists": false,
+          "kind": "share_summary_md",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\share\\summary.md"
+        },
+        "share_ui_bundle_dir": {
+          "exists": false,
+          "kind": "share_ui_bundle_dir",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\share\\ui_bundle"
+        }
+      },
+      "status": "ok",
+      "summary": {}
+    },
+    "features": {
+      "decision": {
+        "forced": false,
+        "mode": "reuse",
+        "reason": "Expected outputs exist on disk (no usable manifest step record).",
+        "used_manifest": false
+      },
+      "inputs": {
+        "cfg_path": "configs\\skynet_smoke.yaml",
+        "config_hash": "fbebdfff6f355c628b3adaf42bcd4903060534819fad58ff42902651aaa4fc58",
+        "params": {
+          "event": "login_attempt"
+        },
+        "run_id": "RUN_SAMPLE_SMOKE_0001",
+        "toggles": {
+          "force": false,
+          "reuse_if_exists": true,
+          "use_cache": true,
+          "write_cache": true
+        }
+      },
+      "name": "features",
+      "notes": [
+        "Skipped build based on reuse policy."
+      ],
+      "outputs": {
+        "features_login": {
+          "exists": true,
+          "kind": "features_login",
+          "path": "runs\\RUN_SAMPLE_SMOKE_0001\\features\\login_attempt\\features.parquet"
+        }
+      },
+      "status": "skipped",
+      "summary": {}
+    }
+  },
+  "timezone": "America/Argentina/Buenos_Aires"
+}

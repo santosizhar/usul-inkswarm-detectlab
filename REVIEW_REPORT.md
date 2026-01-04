@@ -1,175 +1,49 @@
-# REVIEW_REPORT — RC-0001 (Repo Reforge Ceremony)
+# REVIEW REPORT
 
-Date: 2026-01-04
-Repo: `usul-inkswarm-detectlab`
+## Repo map (quick)
+- `src/inkswarm_detectlab/`: core CLI and pipeline modules (`detectlab` entrypoint via `python -m inkswarm_detectlab`).
+- `configs/`: runnable configs for smoke/MVP runs.
+- `docs/`: runbook, repo map, ceremonies, readiness docs.
+- `tests/`: pytest suite covering CLI flags, schemas, cache ops, sharing, UI pieces.
+- `runs/`, `runs_ci/`: sample artifacts and CI fixtures.
+- `scripts/`: helper scripts for packaging and evidence handling.
 
-This report records **implemented changes** from RC-0001 — a declutter + dedupe + release-readiness + playground-optimization pass.
+## Code track
+### Findings
+- Duplicate best-effort JSON/text readers lived in `reports.runner`, `reports.exec_summary`, and `cache.ops`, risking drift between behaviors. **Risk:** Low.
+- Wrapper helpers inside `reports.runner` simply forwarded to `safe_io`, adding indirection without benefit. **Risk:** Low.
+- `safe_io` lacked targeted tests, so regressions around defaults or malformed input would go unnoticed. **Risk:** Low.
+- Notebook/UI helpers (`ui.step_runner`, `ui.summarize`) duplicated JSON reading logic and did not use the shared `safe_io` helpers, risking silent divergence. **Risk:** Low.
+- RR tooling (signature/evidence) used bespoke strict JSON reads without shared diagnostics, making failures harder to triage and drifting from documented policy. **Risk:** Low.
 
----
+### Implemented changes
+- Added shared `utils.safe_io` helpers for safe text/JSON reads and routed reporting/cache modules through them to keep behavior consistent and easier to test. **Why:** removes redundancy and centralizes error handling. 【F:src/inkswarm_detectlab/utils/safe_io.py†L1-L23】【F:src/inkswarm_detectlab/reports/exec_summary.py†L8-L16】【F:src/inkswarm_detectlab/cache/ops.py†L9-L13】
+- Simplified `reports.runner` to call `safe_io` directly, removing redundant wrappers for clearer behavior tracing. **Why:** reduce unnecessary indirection. 【F:src/inkswarm_detectlab/reports/runner.py†L13-L17】【F:src/inkswarm_detectlab/reports/runner.py†L221-L249】
+- Added unit coverage for `safe_io` defaults and malformed inputs to guard the shared helpers. **Why:** ensure future refactors keep the same error-tolerant semantics. 【F:tests/test_safe_io.py†L1-L32】
+- UI helpers now call the shared best-effort JSON reader and include focused tests to confirm missing/invalid files no longer crash notebook flows. **Why:** reduce drift from reporting/cache behavior and harden UI surfaces. 【F:src/inkswarm_detectlab/ui/step_runner.py†L53-L59】【F:src/inkswarm_detectlab/ui/summarize.py†L13-L24】【F:tests/test_ui_safe_io.py†L1-L26】
+- Introduced a strict JSON reader for RR tooling, adopted by `tools/rr_signature.py` and `tools/rr_evidence_md.py`, and documented the policy split between best-effort and fail-closed surfaces. **Why:** unify diagnostics for determinism/evidence tools while keeping operator flows resilient. 【F:src/inkswarm_detectlab/utils/safe_io.py†L25-L47】【F:src/inkswarm_detectlab/tools/rr_signature.py†L18-L21】【F:src/inkswarm_detectlab/tools/rr_evidence_md.py†L16-L21】【F:docs/runbook.md†L37-L48】
 
-## Baseline Snapshot (pre-change)
+## Docs/journals track
+### Findings
+- Root README and bundle index still pointed at CF-0004 even though CF-0005 exists, risking stale ceremony pointers. **Risk:** Low.
 
-### Repo map (high-level)
-- **Runtime code:** `src/inkswarm_detectlab/` (Typer CLI, MVP orchestrator, synthetic → dataset → features → baselines → eval → reports)
-- **Configs:** `configs/` (skynet_smoke / mvp / ci)
-- **Docs:** `docs/` (MkDocs)
-- **Journals:** `journals/` (J + JM pairs, plus root-level bundle/ceremony files)
-- **Playground surfaces:** CLI (`detectlab`) + notebook step runner
+### Implemented changes
+- Updated README and bundle index to reference the latest CF-0005 freeze and restart prompt. **Why:** reduce confusion on the current anchor. 【F:README.md†L13-L24】【F:README__D-0024_INDEX.md†L23-L24】
+- Appended maintainer status addenda (current status, strengths, weaknesses, next actions) to the latest code-freeze journal for visibility. **Why:** capture audit snapshot per instructions. 【F:CODE_FREEZE__CF-0005.md†L85-L126】
+- Added a 2026-01-04 status addendum capturing the UI JSON consolidation and remaining risks. **Why:** keep the freeze journal aligned with the latest audit. 【F:CODE_FREEZE__CF-0005.md†L127-L147】
+- Added a 2026-01-05 addendum plus a runbook JSON I/O policy to document strict vs. best-effort expectations across tooling and UI surfaces. **Why:** make future extensions follow consistent failure semantics. 【F:CODE_FREEZE__CF-0005.md†L148-L169】【F:docs/runbook.md†L37-L48】
 
-### Problems observed
-- **Large generated artifacts were committed** (notebook runs/joblib models), inflating repo size and harming “time-to-first-result” perception.
-- **Repo contained duplicative “bundle” copies** (root-level `README__*_BUNDLE.md` sets and various ceremony duplicates) mixed with live docs.
-- **Journals were fragmented** (`J-*` and `JM-*` pairs + duplicates in root), making “what is current” hard to answer quickly.
-- `.gitignore` was partially out of sync with the actual artifact layout.
+### Docs Changelog
+- README ceremony pointers now target CF-0005.
+- README__D-0024_INDEX updated with CF-0005 links.
+- CODE_FREEZE__CF-0005 includes 2026-01-02, 2026-01-03, 2026-01-04, and 2026-01-05 status addenda.
+- Runbook now documents JSON I/O policy for best-effort vs. strict tooling.
 
-### Baseline run/testing
-- Full end-to-end pipeline was not executed in this environment because it requires `pyarrow` for Parquet IO.
-- **Static + unit verification executed:**
-  - `python -m compileall src` ✅
-  - `pytest -q` ✅
+## Verification
+- `python -m compileall src` (pass). 【d94525†L1-L74】
+- `pytest -q` (pass). 【d25426†L1-L1】
 
----
-
-## STEP 1 — Clutter cleanse (implemented)
-
-### Generated artifacts removed from source control
-- Deleted `notebooks/runs/` and `notebooks/.ipynb_checkpoints/` (large, regeneratable outputs; included `.joblib`).
-- Removed `src/inkswarm_detectlab.egg-info/` (generated packaging metadata).
-
-### Consolidated “archive / legacy” content
-Created a single `legacy/` bucket at repo root and moved:
-- `README__*_BUNDLE.md` and `README__D-0024_INDEX.md` → `legacy/bundles/`
-- Root-level ceremony duplicates (`CODE_FREEZE__*.md`, `CODE_REVIEW__*.md`, etc.) → `legacy/ceremonies/`
-- Codex helper docs (`CR-CODEX__*.md`) → `legacy/codex/`
-- Misc historical docs (e.g., `POST_RR2_...CHANGELOG.md`, `MANUAL_RUNS_AND_CHECKS.md`) → `legacy/misc/`
-
-### Repo hygiene
-- Replaced `.gitignore` with a clearer, stricter ignore set for:
-  - venvs, caches, build outputs
-  - notebooks checkpoints and run artifacts
-  - `runs/`, `runs_ci/`, `_cache/`, `artifacts/`
-
----
-
-## STEP 2 — Code dedupe + simplification (implemented)
-
-Low-risk surgical improvements:
-- Added **`detectlab run quick`** as a convenience wrapper around the MVP orchestrator using `configs/skynet_smoke.yaml`.
-  - Reduces friction for first-time users (“fastest path to visible output”).
-- Removed generated packaging noise (`*.egg-info`).
-
-(Deeper refactors were intentionally avoided in this pass to preserve behavior and reduce risk.)
-
----
-
-## STEP 3 — Final user playground optimization (implemented)
-
-### Faster “first useful thing”
-- New `detectlab run quick` entrypoint.
-- Playground documentation added/updated to emphasize quick workflows and incremental runs.
-
-### Usability improvements
-- Added `docs/playground.md` with:
-  - “fast path” commands
-  - where outputs appear
-  - incrementalism/caching expectations
-  - the next planned “quality scorecard” concept
-
----
-
-## STEP 4 — Docs + journals merge/tidy (implemented)
-
-### Docs
-- Added: `docs/playground.md`
-- Updated: `docs/index.md` (links to playground + journal index)
-- Updated: `docs/repo_map.md` (clarified local outputs vs fixtures)
-- Updated: `mkdocs.yml` navigation to include the new Playground Guide.
-
-### Journals
-- Created: `journals/MASTERJOURNAL.md` as the **single canonical journal index**.
-- Moved all existing journals into: `journals/legacy/`.
-- Preserved drafts in: `journals/legacy/_drafts/`.
-
-### Latest Code Freeze status append
-- Appended a **Post-Review Status** section to:
-  - `journals/legacy/inkswarm-detectlab__JM-0022__CF-0005__verified-run-and-docs-stabilization.md`
-
----
-
-## STEP 5 — Release preparedness (implemented)
-
-Added lightweight release hygiene:
-- `VERSION` (current: `0.1.0`)
-- `CHANGELOG.md` (Unreleased + 0.1.0 stub)
-
-Updated README pointers so the repo’s “truth” is:
-- live docs under `docs/`
-- canonical journal index under `journals/MASTERJOURNAL.md`
-- historical bundles under `legacy/`
-
----
-
-## Commands run + results
-
-```bash
-python -m compileall src
-pytest -q
-```
-
-Results:
-- compileall: ✅
-- pytest: ✅ (18 tests)
-
----
-
-## High-risk findings NOT changed (intentionally)
-
-- **Python / dependency policy**: project requires Parquet IO via `pyarrow`. This pass did not alter dependency pins or attempt to add fallbacks.
-- **Pipeline architecture**: no large-scale refactors of orchestrator/stages were performed.
-
----
-
-## Cluster/quality scope note (requested)
-
-DetectLab is not a clustering-first repo, but RC-0001 scope explicitly includes **output quality as a first-class axis** (analogous to “cluster quality” in other projects):
-
-- Dataset quality (leakage checks, prevalence, sanity)
-- Feature quality (missingness, stability)
-- Baseline/model quality (headline metrics + stability)
-
-A recommended next deliverable is a **single “quality report”** command that produces a compact scorecard (JSON + MD) for “at-a-glance confidence.”
-
----
-
-## Remaining TODOs (not done here)
-
-1) Add `detectlab quality report` (scorecard JSON + MD) and document it.
-2) Add a tiny committed demo dataset/fixture (optional) so `detectlab run quick` can run without external deps in constrained environments.
-3) Tighten artifact retention automation (e.g., `detectlab cache prune` defaults + docs).
-4) Consider a minimal “one command” Windows PowerShell quickstart script.
-
-
-## RC-0001.1 Addendum — “Stronger revamp” details + cluster quality
-
-This addendum exists because the RC-0001 pass deliberately kept the on-disk repo small and clean; that can make the *summary* feel underpowered even when the underlying changes are large.
-
-### Quantitative cleanup delta (from the uploaded working tree snapshot)
-- Snapshot (uploaded zip) contained ~**38,853** files and ~**235.8 MB** compressed payload, dominated by generated artifacts (runs/, caches, notebooks outputs).
-- Reforged repo now ships ~**1,014** files and ~**1.0 MB** compressed payload.
-- Net: **>97%** reduction in shipped payload, without removing core source modules or docs.
-
-### “Cluster quality” is now in scope
-Added a first-class scorecard command:
-
-- CLI: `detectlab quality cluster --data <...> --out <...>`
-- Artifacts: `cluster_quality.json` + `cluster_quality.md`
-- Metrics: silhouette, Davies–Bouldin, Calinski–Harabasz; optional ARI/NMI if you provide ground-truth labels.
-
-Docs: `docs/quality.md`
-
-### What this addendum did NOT attempt
-- It did not invent a repo-specific definition of “good clusters” (that depends on your downstream objective). Instead it provides:
-  - a generic quality harness
-  - standardized artifacts under runs/
-  - an easy place to extend with your domain thresholds
-
+## Notes / high-risk items left untouched
+- No automated end-to-end smoke run in CI; current tests are unit-heavy and may miss full-pipeline regressions.
+- Report/share rendering still relies on custom Markdown→HTML glue with limited dedicated tests; future refactors should add coverage before larger changes.
+- Strict JSON helper is only applied to RR evidence/signature; broader tooling surfaces may need adoption once their failure expectations are clarified.

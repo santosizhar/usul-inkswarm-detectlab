@@ -14,7 +14,6 @@ The documentation is designed so a **non-technical reader** can still understand
 1) **MVP User Guide (non-technical):** `docs/mvp_user_guide.md`  
 2) **Runbook (commands + expected outputs):** `docs/runbook.md`  
 3) **Repo Map (for reviewers):** `docs/repo_map.md`
-4) **Playground Guide (quick workflows):** `docs/playground.md`
 
 ---
 
@@ -31,11 +30,6 @@ The documentation is designed so a **non-technical reader** can still understand
 - Code Freeze process: `docs/code_freeze.md`
 
 ---
-
-## Journals
-
-- Canonical index: `journals/MASTERJOURNAL.md`
-- Full history (legacy): `journals/legacy/`
 
 ## Ceremonies
 
