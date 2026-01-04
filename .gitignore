@@ -1,15 +1,33 @@
+# --- Python ---
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.ipynb_checkpoints/
-.venv/
-dist/
-build/
 *.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+.venv*/
+.env
+
+# Packaging
+build/
+dist/
 site/
 
-runs/*
-!runs/PLACEHOLDER_RUN_0001/
-!runs/PLACEHOLDER_RUN_0001/**
-!runs/RUN_SAMPLE_SMOKE_0001/
-!runs/RUN_SAMPLE_SMOKE_0001/**
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Project artifacts ---
+# Local runs and caches are not source-controlled.
+runs/
+runs_ci/
+notebooks/runs/
+_cache/
+artifacts/
+
+# Large model artifacts
+*.joblib
+
+# OS junk
+.DS_Store
+Thumbs.db

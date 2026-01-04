@@ -16,6 +16,7 @@ Fail-closed
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +29,6 @@ from ..io.paths import run_dir as run_dir_for
 from ..schemas import get_schema
 from ..utils.canonical import canonicalize_df
 from ..utils.hashing import stable_hash_df, stable_hash_dict
-from ..utils.safe_io import read_json_strict
 
 app = typer.Typer(add_completion=False, help="Write a normalized RR determinism signature JSON.")
 
@@ -122,7 +122,7 @@ def _features_numeric_summary(features_path: Path) -> dict[str, Any]:
 
 def _parse_baselines_metrics(metrics_path: Path) -> dict[str, Any]:
     """Parse BaselineLab metrics.json into a stable, comparable structure."""
-    data = read_json_strict(metrics_path)
+    data = json.loads(metrics_path.read_text(encoding="utf-8"))
 
     out: dict[str, Any] = {}
 

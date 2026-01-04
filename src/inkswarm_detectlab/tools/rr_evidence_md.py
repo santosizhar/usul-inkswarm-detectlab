@@ -12,14 +12,13 @@ Fail-closed
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from ..utils.safe_io import read_json_strict
-
 
 def _load_json(path: Path) -> Dict[str, Any]:
-    return read_json_strict(path)
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _get_code_sha(sig: Dict[str, Any]) -> Optional[str]:

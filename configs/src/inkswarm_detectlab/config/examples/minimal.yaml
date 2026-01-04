@@ -1,8 +1,0 @@
-run:
-  schema_version: v1
-  timezone: America/Argentina/Buenos_Aires
-  seed: 1337
-  run_id_prefix: RUN
-  run_id_width: 4
-paths:
-  runs_dir: runs

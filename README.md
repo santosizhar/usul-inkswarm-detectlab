@@ -12,15 +12,15 @@ If you only read one doc:
 - `configs/` — runnable configs (smoke + MVP)
 - `docs/` — runbook, readiness, and troubleshooting
 - `tests/` — unit/regression tests
-- `runs/` — run artifacts (reports, manifests, caches)
-- Ceremony: see `CODE_FREEZE__CF-0005.md` (latest) and `inkswarm-detectlab__MASTERPROMPT_CF-0005__Code-Freeze-Restart.md`
-- History bundles: latest bundle `README__D-0024.15_BUNDLE.md`; index of older bundles at `README__D-0024_INDEX.md`.
+- `runs/` — local run artifacts (ignored; not source-controlled)
+- Ceremony + history: see `journals/MASTERJOURNAL.md` (canonical index) and `journals/legacy/` (full legacy journals). Restart prompts live under `prompts/`.
+- History bundles: archived under `legacy/bundles/` (not required for normal use).
 
 ### Entry points
 - CLI: `detectlab` (`python -m inkswarm_detectlab`), see `detectlab --help`
 - Runbook: `docs/runbook.md`
 - Quickstart + verification: `docs/getting_started.md`
-- Bundle index + ceremony anchors: `README__D-0024_INDEX.md`, `CODE_FREEZE__CF-0005.md`
+- Journal index + prompts: `journals/MASTERJOURNAL.md`, `prompts/`
 
 ---
 
@@ -46,6 +46,14 @@ pip install -e ".[dev]"
 ```
 
 Run a smoke pipeline (example run id: `RUN_XXX_0005`):
+
+Fastest end-to-end first run:
+
+```bash
+detectlab run quick --run-id RUN_XXX_0005 --force
+```
+
+...or run stages manually:
 
 ```bash
 detectlab run skynet -c configs/skynet_smoke.yaml --run-id RUN_XXX_0005 --force
@@ -131,8 +139,8 @@ detectlab sanity -c configs/skynet_smoke.yaml --run-id SANITY_SMOKE_0001 --force
 
 ## Code Freeze
 
-- Latest: `CODE_FREEZE__CF-0005.md`
-- Restart prompt: `inkswarm-detectlab__MASTERPROMPT_CF-0005__Code-Freeze-Restart.md`
+- Latest: `CODE_FREEZE__CF-0004.md`
+- Restart prompt: `inkswarm-detectlab__MASTERPROMPT_CF-0004__Code-Freeze-Restart.md`
 
 ## Hygiene & ops notes
 - Dependency drift: run `tools/dependency_check.sh` (prints `pip check` + outdated list) and review `requirements.lock` when bumping deps.

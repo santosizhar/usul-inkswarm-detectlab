@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from inkswarm_detectlab.utils.md_to_html import md_to_html_document
-from inkswarm_detectlab.utils.safe_io import safe_read_json, safe_read_text
 
 EXEC_START = "<!-- EXEC_SUMMARY:START -->"
 EXEC_END = "<!-- EXEC_SUMMARY:END -->"
@@ -20,17 +19,25 @@ class ExecSummaryArtifacts:
     summary_html: Path
 
 
+def _safe_read_text(p: Path) -> str:
+    try:
+        return p.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
 def _safe_write_text(p: Path, text: str) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(text, encoding="utf-8")
 
 
-def _safe_read_text(p: Path) -> str:
-    return safe_read_text(p, default="") or ""
-
-
 def _load_json_if_exists(p: Path) -> Optional[Any]:
-    return safe_read_json(p)
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except Exception:
+        return None
 
 
 def _fmt(v: Any) -> str:

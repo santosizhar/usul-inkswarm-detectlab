@@ -50,13 +50,12 @@ These helpers intentionally avoid any notebook-only dependencies.
 from pathlib import Path
 from typing import Union,  Any, Dict, Optional, Tuple
 
-from inkswarm_detectlab.utils.safe_io import safe_read_json
+import json
 
 
-def _read_json_dict(path: Path) -> Dict[str, Any]:
-    """Best-effort JSON reader for UI helpers (dict only)."""
-
-    return safe_read_json(Path(path), default={}) or {}
+def _read_json(path: Path) -> Dict[str, Any]:
+    """Read a JSON file as UTF-8 (stdlib-only)."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 from ..config import load_config
@@ -432,7 +431,10 @@ def step_baselines(
     if dec.mode == "reuse" and present:
         summary = {}
         if metrics_path0 and metrics_path0.exists():
-            summary = _read_json_dict(metrics_path0).get("meta", {})
+            try:
+                summary = _read_json(metrics_path0).get("meta", {})
+            except Exception:  # noqa: BLE001
+                summary = {}
         step = StepResult(
             name="baselines",
             status="skipped",
@@ -458,7 +460,10 @@ def step_baselines(
     status = "ok" if present2 else "partial"
     summary2: Dict[str, Any] = {}
     if metrics_path2 and metrics_path2.exists():
-        summary2 = _read_json_dict(metrics_path2).get("meta", {})
+        try:
+            summary2 = _read_json(metrics_path2).get("meta", {})
+        except Exception:  # noqa: BLE001
+            summary2 = {}
 
     step = StepResult(
         name="baselines",
@@ -617,7 +622,7 @@ def step_export(
         # 5A) UI summary (used as input to handover)
         ui_summary_path = write_ui_summary(cfg, run_id=run_id, force=force)
         try:
-            summary: dict[str, Any] = _read_json_dict(ui_summary_path)
+            summary: dict[str, Any] = _read_json(ui_summary_path)
         except Exception as e:  # noqa: BLE001
             summary = {
                 "run_id": run_id,

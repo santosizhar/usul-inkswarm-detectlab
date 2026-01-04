@@ -1,9 +1,0 @@
-site_name: Inkswarm DetectLab
-theme:
-  name: material
-nav:
-  - Home: index.md
-  - Getting Started: getting_started.md
-  - Pipeline Overview: pipeline_overview.md
-  - Schemas: schemas.md
-  - Lore: lore/world_bible.md
