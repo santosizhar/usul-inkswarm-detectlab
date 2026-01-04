@@ -1,0 +1,33 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+.venv*/
+.env
+
+# Packaging
+build/
+dist/
+site/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Project artifacts ---
+# Local runs and caches are not source-controlled.
+runs/
+runs_ci/
+notebooks/runs/
+_cache/
+artifacts/
+
+# Large model artifacts
+*.joblib
+
+# OS junk
+.DS_Store
+Thumbs.db
