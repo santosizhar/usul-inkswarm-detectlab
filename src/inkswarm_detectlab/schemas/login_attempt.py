@@ -1,0 +1,37 @@
+from __future__ import annotations
+from .base import ColumnSpec, EventSchema
+
+SCHEMA = EventSchema(
+    name="login_attempt",
+    version="1",
+    description="SKYNET target event. Support fields are embedded here; support is not a separate event table.",
+    columns=[
+            ColumnSpec(name='run_id', dtype='string', required=True, enum=None, description='Run identifier (locked).'),
+            ColumnSpec(name='event_id', dtype='string', required=True, enum=None, description='Unique event id within run.'),
+            ColumnSpec(name='event_ts', dtype='timestamp_tz', required=True, enum=None, description='Timezone-aware timestamp in America/Argentina/Buenos_Aires.'),
+            ColumnSpec(name='user_id', dtype='string', required=True, enum=None, description='Primary entity id (locked).'),
+            ColumnSpec(name='session_id', dtype='string', required=False, enum=None, description='Session identifier (nullable).'),
+            ColumnSpec(name='ip_hash', dtype='string', required=False, enum=None, description='Hashed IP / pseudo-identifier.'),
+            ColumnSpec(name='device_fingerprint_hash', dtype='string', required=False, enum=None, description='Hashed device fingerprint / pseudo-identifier.'),
+            ColumnSpec(name='country', dtype='string', required=False, enum=None, description='Country code/name (nullable).'),
+            ColumnSpec(name='is_fraud', dtype='bool', required=False, enum=None, description='High-level fraud label (nullable in raw events).'),
+            ColumnSpec(name='label_replicators', dtype='bool', required=False, enum=None, description='Multi-label head: REPLICATORS.'),
+            ColumnSpec(name='label_the_mule', dtype='bool', required=False, enum=None, description='Multi-label head: THE_MULE.'),
+            ColumnSpec(name='label_the_chameleon', dtype='bool', required=False, enum=None, description='Multi-label head: THE_CHAMELEON.'),
+            ColumnSpec(name='label_benign', dtype='bool', required=False, enum=None, description='Derived: true when no attack labels set.'),
+            ColumnSpec(name='metadata_json', dtype='string', required=False, enum=None, description='Flexible JSON payload (allowed early; endgame derives wide tables).'),
+            ColumnSpec(name='login_result', dtype='string', required=True, enum=['success', 'failure', 'challenge', 'lockout'], description='Outcome of the login attempt.'),
+            ColumnSpec(name='failure_reason', dtype='string', required=False, enum=['bad_password', 'unknown_user', 'mfa_failed', 'rate_limited', 'other'], description='Reason for failure (nullable).'),
+            ColumnSpec(name='username_present', dtype='bool', required=True, enum=None, description='Whether a username/email field was present.'),
+            ColumnSpec(name='mfa_used', dtype='bool', required=True, enum=None, description='Whether MFA was attempted/used.'),
+            ColumnSpec(name='mfa_result', dtype='string', required=False, enum=['pass', 'fail', 'not_applicable'], description='MFA outcome (nullable).'),
+            ColumnSpec(name='support_contacted', dtype='bool', required=True, enum=None, description='Support contacted after/around this login attempt.'),
+            ColumnSpec(name='support_channel', dtype='string', required=True, enum=['chat', 'email', 'phone', 'in_app', 'none'], description='Support channel (embedded; support is not an event table).'),
+            ColumnSpec(name='support_responder_type', dtype='string', required=True, enum=['agent', 'bot', 'none'], description='Support responder type.'),
+            ColumnSpec(name='support_wait_seconds', dtype='int64', required=False, enum=None, description='Support wait time in seconds.'),
+            ColumnSpec(name='support_handle_seconds', dtype='int64', required=False, enum=None, description='Support handle time in seconds.'),
+            ColumnSpec(name='support_cost_usd', dtype='float64', required=False, enum=None, description='Support cost estimate in USD.'),
+            ColumnSpec(name='support_resolution', dtype='string', required=True, enum=['resolved', 'unresolved', 'escalated', 'none'], description='Support resolution status.'),
+            ColumnSpec(name='support_offset_seconds', dtype='int64', required=False, enum=None, description='Seconds between login attempt and support interaction.'),
+    ],
+)

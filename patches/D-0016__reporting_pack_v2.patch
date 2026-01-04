@@ -1,0 +1,95 @@
+--- a/src/inkswarm_detectlab/pipeline.py
++++ b/src/inkswarm_detectlab/pipeline.py
+@@ -1,4 +1,9 @@
+ from __future__ import annotations
++
++# Executive summary markers (used by reports.exec_summary to inject stakeholder blurb)
++EXEC_SUMMARY_START = "<!-- EXEC_SUMMARY:START -->"
++EXEC_SUMMARY_END = "<!-- EXEC_SUMMARY:END -->"
++
+ 
+ from dataclasses import dataclass
+ from pathlib import Path
+@@ -269,3 +274,11 @@
+ def run_all(cfg: AppConfig, run_id: str | None = None) -> tuple[Path, dict[str, Any]]:
+     rdir, _ = generate_raw(cfg, run_id=run_id)
+     return build_dataset(cfg, run_id=rdir.name)
++
++
++def _ensure_exec_markers(summary_text: str) -> str:
++    """Ensure summary.md contains EXEC_SUMMARY markers at the top (stable injection point)."""
++    if EXEC_SUMMARY_START in summary_text and EXEC_SUMMARY_END in summary_text:
++        return summary_text
++    header = "\n".join([EXEC_SUMMARY_START, EXEC_SUMMARY_END, ""])
++    return header + summary_text
+
+--- a/src/inkswarm_detectlab/mvp/orchestrator.py
++++ b/src/inkswarm_detectlab/mvp/orchestrator.py
+@@ -14,6 +14,7 @@
+ from ..io.paths import run_dir as run_dir_for
+ 
+ from .handover import write_mvp_handover
++from inkswarm_detectlab.reports.exec_summary import write_exec_summary
+ 
+ 
+ def run_mvp(
+@@ -111,4 +112,12 @@
+ # Overall status
+     fails = [s for s in summary["steps"] if s.get("status") == "fail"]
+     summary["status"] = "ok" if not fails else "partial"
++
++    # D-0016: generate stakeholder-friendly executive summary (MD + HTML) and HTML render of summary.md
++    try:
++        write_exec_summary(run_dir=run_dir, rr_provisional=True, d0004_deferred=True)
++    except Exception as e:
++        # Fail-soft for reporting extras; core pipeline should remain usable
++        logger.warning(f"Exec summary generation failed: {e}")
++
+     return rdir, summary
+
+--- a/src/inkswarm_detectlab/share/evidence.py
++++ b/src/inkswarm_detectlab/share/evidence.py
+@@ -43,7 +43,9 @@
+     """Create a tidy, shareable evidence layout under runs/<run_id>/share/.
+ 
+     This is intended for non-technical recipients:
+-      - open share/ui_bundle/index.html
++      - open share/ui_bundle/index.html (UI)
++- reports/EXEC_SUMMARY.html (stakeholder-friendly)
++- reports/summary.html (full summary rendered)
+       - read share/reports/mvp_handover.md
+       - optionally inspect share/meta/manifest.json + ui_summary.json
+       - logs live under share/logs/
+@@ -91,7 +93,9 @@
+ This folder is meant to be sent as-is.
+ 
+ ## Open this first
+-- `ui_bundle/index.html` (interactive, stakeholder-friendly)
++- `ui_bundle/index.html (UI)
++- reports/EXEC_SUMMARY.html (stakeholder-friendly)
++- reports/summary.html (full summary rendered)` (interactive, stakeholder-friendly)
+ 
+ ## Then read
+ - `reports/mvp_handover.md` (plain-language interpretation)
+@@ -107,7 +111,9 @@
+     copied_files.append(readme)
+ 
+     # Evidence manifest (hashes so two exports are comparable)
+-    # We hash files inside share/ excluding the UI bundle assets (large) except index.html + app.js.
++    # We hash files inside share/ excluding the UI bundle assets (large) except index.html (UI)
++- reports/EXEC_SUMMARY.html (stakeholder-friendly)
++- reports/summary.html (full summary rendered) + app.js.
+     manifest: Dict[str, Any] = {
+         "schema_version": 1,
+         "root": str(share_root),
+@@ -120,7 +126,9 @@
+         except Exception:
+             return False
+         if rel.startswith("ui_bundle/"):
+-            return rel in {"ui_bundle/index.html", "ui_bundle/app.js", "ui_bundle/style.css"}
++            return rel in {"ui_bundle/index.html (UI)
++- reports/EXEC_SUMMARY.html (stakeholder-friendly)
++- reports/summary.html (full summary rendered)", "ui_bundle/app.js", "ui_bundle/style.css"}
+         return True
+ 
+     for p in sorted([x for x in share_root.rglob("*") if x.is_file()]):
