@@ -148,3 +148,28 @@ A recommended next deliverable is a **single “quality report”** command that
 3) Tighten artifact retention automation (e.g., `detectlab cache prune` defaults + docs).
 4) Consider a minimal “one command” Windows PowerShell quickstart script.
 
+
+## RC-0001.1 Addendum — “Stronger revamp” details + cluster quality
+
+This addendum exists because the RC-0001 pass deliberately kept the on-disk repo small and clean; that can make the *summary* feel underpowered even when the underlying changes are large.
+
+### Quantitative cleanup delta (from the uploaded working tree snapshot)
+- Snapshot (uploaded zip) contained ~**38,853** files and ~**235.8 MB** compressed payload, dominated by generated artifacts (runs/, caches, notebooks outputs).
+- Reforged repo now ships ~**1,014** files and ~**1.0 MB** compressed payload.
+- Net: **>97%** reduction in shipped payload, without removing core source modules or docs.
+
+### “Cluster quality” is now in scope
+Added a first-class scorecard command:
+
+- CLI: `detectlab quality cluster --data <...> --out <...>`
+- Artifacts: `cluster_quality.json` + `cluster_quality.md`
+- Metrics: silhouette, Davies–Bouldin, Calinski–Harabasz; optional ARI/NMI if you provide ground-truth labels.
+
+Docs: `docs/quality.md`
+
+### What this addendum did NOT attempt
+- It did not invent a repo-specific definition of “good clusters” (that depends on your downstream objective). Instead it provides:
+  - a generic quality harness
+  - standardized artifacts under runs/
+  - an easy place to extend with your domain thresholds
+

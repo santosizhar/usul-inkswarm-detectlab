@@ -285,3 +285,10 @@
 
 - `journals/legacy/_drafts/` contains unfinished drafts preserved as-is.
 - RC-0001 also appends a post-review status section to the latest Code Freeze journal.
+
+
+## RC-0001.1 — Addendum (cluster quality + stronger revamp summary)
+
+- Added `detectlab quality cluster` scorecard command.
+- Added docs `docs/quality.md`.
+- Expanded REVIEW_REPORT with quantitative delta + scope clarifications.

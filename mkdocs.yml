@@ -12,6 +12,7 @@ nav:
   - Pipeline Overview: pipeline_overview.md
   - FeatureLab: features.md
   - Baselines: baselines.md
+  - Quality: quality.md
   - Schemas: schemas.md
   - Release Readiness (MVP): release_readiness_mvp.md
   - Windows Notes: windows_repro.md
