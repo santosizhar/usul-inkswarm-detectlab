@@ -76,6 +76,7 @@ class SkynetSyntheticConfig(BaseModel):
     n_users: int = Field(default=5000, ge=1)
     login_events_per_day: int = Field(default=20000, ge=1)
     checkout_events_per_day: int = Field(default=2000, ge=0)
+    batch_size: int = Field(default=50000, ge=1, description="Row-group batch size for synthetic generators.")
 
     # Prevalence
     attack_prevalence: float = Field(default=0.06, ge=0.0, le=1.0)
@@ -178,6 +179,22 @@ class RFBaselineConfig(BaseModel):
     # Robust, widely-supported tree baseline (chosen for MVP default instead of HGB).
     n_estimators: int = Field(default=300, ge=1)
     max_depth: int | None = Field(default=None)
+    n_estimators: int = Field(
+        default=200,
+        ge=1,
+        description=(
+            "Number of trees. Default reduced from 300 to keep training lighter by default; "
+            "set higher to match the previous heavier baseline."
+        ),
+    )
+    max_depth: int | None = Field(
+        default=20,
+        ge=1,
+        description=(
+            "Maximum depth for each tree. The default cap avoids runaway tree growth on large datasets; "
+            "set to `None` to restore the old unbounded behavior."
+        ),
+    )
     min_samples_leaf: int = Field(default=1, ge=1)
     max_features: Literal["sqrt", "log2"] | float | None = Field(default="sqrt")
     max_samples: float | int | None = Field(
@@ -190,6 +207,10 @@ class RFBaselineConfig(BaseModel):
         default=-1,
         description=(
             "Parallel jobs for RandomForest (default: all cores with -1); preset='deterministic' forces this back to 1."
+        gt=0.0,
+        description=(
+            "Optional bootstrap subsampling per tree. Use a float in (0, 1] for a fraction of rows "
+            "or an int for an absolute count; `None` keeps sklearn's default (full bootstrap)."
         ),
     )
 

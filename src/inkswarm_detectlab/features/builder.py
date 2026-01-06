@@ -3,9 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Tuple
+from weakref import WeakKeyDictionary
 
 import numpy as np
 import pandas as pd
+
+from .._compat_numba import njit, typed_dict_empty
 
 
 @dataclass(frozen=True)
@@ -86,6 +89,81 @@ def _rolling_cnt_by_time(
     return s.fillna(0.0).to_numpy()
 
 
+_SORTED_VIEW_CACHE: WeakKeyDictionary[pd.DataFrame, dict[tuple[str, str], pd.DataFrame]] = WeakKeyDictionary()
+
+
+def _get_sorted_unique_view(df: pd.DataFrame, group_key: str, value_key: str) -> pd.DataFrame:
+    key = (group_key, value_key)
+    cached = _SORTED_VIEW_CACHE.get(df)
+    if cached is not None and key in cached:
+        return cached[key]
+
+    d = df[[group_key, "event_ts", "event_id", value_key]].copy()
+    d["event_ts"] = _ensure_dt(d).values
+    d[group_key] = d[group_key].astype("string")
+    d[value_key] = d[value_key].astype("string").fillna("<NA>")
+    d = d.sort_values([group_key, "event_ts", "event_id"], kind="mergesort").reset_index(drop=True)
+
+    if cached is None:
+        cached = {}
+        _SORTED_VIEW_CACHE[df] = cached
+    cached[key] = d
+    return d
+
+
+@njit
+def _sliding_unique_counts(
+    group_codes: np.ndarray, ts_ns: np.ndarray, value_codes: np.ndarray, window_ns: np.int64
+) -> np.ndarray:
+    n = len(ts_ns)
+    out = np.zeros(n, dtype=np.int64)
+
+    counts = typed_dict_empty()
+
+    last_group = -1
+    left = 0
+    i = 0
+
+    while i < n:
+        g = group_codes[i]
+        if g != last_group:
+            counts.clear()
+            left = i
+            last_group = g
+
+        t = ts_ns[i]
+        expire_before = t - window_ns
+
+        while left < i and group_codes[left] == g and ts_ns[left] <= expire_before:
+            v = value_codes[left]
+            c = counts.get(v, 0) - 1
+            if c == 0:
+                counts.pop(v)
+            else:
+                counts[v] = c
+            left += 1
+
+        j = i + 1
+        while j < n and group_codes[j] == g and ts_ns[j] == t:
+            j += 1
+
+        current_unique = len(counts)
+        k = i
+        while k < j:
+            out[k] = current_unique
+            k += 1
+
+        k = i
+        while k < j:
+            v = value_codes[k]
+            counts[v] = counts.get(v, 0) + 1
+            k += 1
+
+        i = j
+
+    return out
+
+
 def _rolling_unique_count_strict(
     df: pd.DataFrame,
     *,
@@ -93,51 +171,20 @@ def _rolling_unique_count_strict(
     value_key: str,
     window_td: timedelta,
 ) -> Tuple[np.ndarray, pd.DataFrame]:
-    """Strict past-only unique count per group using a timestamp-batched sliding window.
+    """Strict past-only unique count per group using a vectorized sliding window.
 
     Deterministic and treats same-timestamp events as not visible to each other.
     Returns (counts_aligned_to_sorted_df, sorted_df_used_for_computation).
     """
-    d = df[[group_key, "event_ts", "event_id", value_key]].copy()
-    d["event_ts"] = _ensure_dt(d).values
-    d[group_key] = d[group_key].astype("string")
-    d[value_key] = d[value_key].astype("string").fillna("<NA>")
-    d = d.sort_values([group_key, "event_ts", "event_id"], kind="mergesort").reset_index(drop=True)
 
-    out = np.zeros(len(d), dtype=np.int64)
+    d = _get_sorted_unique_view(df, group_key=group_key, value_key=value_key)
 
-    win_ns = np.timedelta64(int(window_td.total_seconds() * 1_000_000_000), "ns")
+    group_codes = pd.factorize(d[group_key], sort=False)[0].astype(np.int64)
+    value_codes = pd.factorize(d[value_key], sort=False)[0].astype(np.int64)
+    ts_ns = d["event_ts"].view("int64")
 
-    for _, g in d.groupby(group_key, sort=False):
-        idxs = g.index.to_numpy()
-        ts = g["event_ts"].to_numpy()
-        vals = g[value_key].to_numpy()
-
-        left = 0
-        counts: dict[str, int] = {}
-
-        unique_ts, start_pos = np.unique(ts, return_index=True)
-        start_pos = list(start_pos) + [len(ts)]
-        for b in range(len(unique_ts)):
-            b_start = start_pos[b]
-            b_end = start_pos[b + 1]
-            t = unique_ts[b]
-
-            expire_before = t - win_ns
-            while left < b_start and ts[left] <= expire_before:
-                v = vals[left]
-                c = counts.get(v, 0) - 1
-                if c <= 0:
-                    counts.pop(v, None)
-                else:
-                    counts[v] = c
-                left += 1
-
-            out[idxs[b_start:b_end]] = len(counts)
-
-            for j in range(b_start, b_end):
-                v = vals[j]
-                counts[v] = counts.get(v, 0) + 1
+    win_ns = np.int64(window_td.total_seconds() * 1_000_000_000)
+    out = _sliding_unique_counts(group_codes, ts_ns, value_codes, win_ns)
 
     return out, d
 

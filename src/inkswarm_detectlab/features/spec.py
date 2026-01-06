@@ -24,6 +24,8 @@ class FeatureSpec(BaseModel):
     keys: list[str] = Field(default_factory=lambda: ["event_id", "event_ts", "user_id", "session_id"])
     label_columns: list[str] = Field(default_factory=lambda: ["label_replicators", "label_the_mule", "label_the_chameleon", "label_benign"])
     derived_columns: list[str] = Field(default_factory=lambda: ["is_fraud"])
+    split_column: str | None = None
+    partition_columns: list[str] = Field(default_factory=list)
 
     feature_columns: list[str] = Field(default_factory=list)
 
@@ -43,5 +45,7 @@ class FeatureManifest(BaseModel):
     artifact_format: str
     artifact_note: str | None = None
     content_hash: str
+    split_column: str | None = None
+    partition_columns: list[str] = Field(default_factory=list)
 
     spec: FeatureSpec
