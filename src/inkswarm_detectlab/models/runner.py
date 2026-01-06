@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 import json
 import platform
@@ -99,38 +100,47 @@ def _select_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
 
 def _fit_logreg(
     cfg: AppConfig,
-    X: pd.DataFrame,
+    X: np.ndarray,
     y: np.ndarray,
     *,
     logreg_cfg: LogRegBaselineConfig | None = None,
+    imputer: SimpleImputer | None = None,
+    scaler: StandardScaler | None = None,
+    feature_names: list[str] | None = None,
 ) -> Pipeline:
     c = logreg_cfg or cfg.baselines.login_attempt.logreg
     class_weight = "balanced" if c.class_weight == "balanced" else None
-    pipe = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="constant", fill_value=0.0)),
-            ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            (
-                "model",
-                LogisticRegression(
-                    C=c.C,
-                    max_iter=c.max_iter,
-                    class_weight=class_weight,
-                    solver="lbfgs",
-                ),
-            ),
-        ]
+    model = LogisticRegression(
+        C=c.C,
+        max_iter=c.max_iter,
+        class_weight=class_weight,
+        solver="lbfgs",
     )
-    pipe.fit(X, y)
+    model.fit(X, y)
+
+    steps = []
+    if imputer is not None:
+        steps.append(("imputer", deepcopy(imputer)))
+    if scaler is not None:
+        steps.append(("scaler", deepcopy(scaler)))
+    steps.append(("model", model))
+
+    pipe = Pipeline(steps=steps)
+    if hasattr(model, "n_features_in_"):
+        pipe.n_features_in_ = model.n_features_in_  # type: ignore[attr-defined]
+    if feature_names is not None:
+        pipe.feature_names_in_ = np.array(feature_names)  # type: ignore[attr-defined]
     return pipe
 
 
 def _fit_rf(
     cfg: AppConfig,
-    X: pd.DataFrame,
+    X: np.ndarray,
     y: np.ndarray,
     *,
     rf_cfg: RFBaselineConfig | None = None,
+    imputer: SimpleImputer | None = None,
+    feature_names: list[str] | None = None,
 ) -> Pipeline:
     c = rf_cfg or cfg.baselines.login_attempt.rf
     model = RandomForestClassifier(
@@ -141,8 +151,18 @@ def _fit_rf(
         n_jobs=1,  # deterministic + avoids BLAS/OpenMP surprises
         random_state=cfg.run.seed,
     )
-    pipe = Pipeline(steps=[("imputer", SimpleImputer(strategy="constant", fill_value=0.0)), ("model", model)])
-    pipe.fit(X, y)
+    model.fit(X, y)
+
+    steps = []
+    if imputer is not None:
+        steps.append(("imputer", deepcopy(imputer)))
+    steps.append(("model", model))
+
+    pipe = Pipeline(steps=steps)
+    if hasattr(model, "n_features_in_"):
+        pipe.n_features_in_ = model.n_features_in_  # type: ignore[attr-defined]
+    if feature_names is not None:
+        pipe.feature_names_in_ = np.array(feature_names)  # type: ignore[attr-defined]
     return pipe
 
 
@@ -192,7 +212,7 @@ def _fit_hgb_in_subprocess(
     return model_path, meta
 
 
-def _score_model(model: Pipeline, X: pd.DataFrame) -> np.ndarray:
+def _score_model(model: Pipeline, X: pd.DataFrame | np.ndarray) -> np.ndarray:
     # Prefer predict_proba if available; otherwise decision_function
     if hasattr(model, "predict_proba"):
         p = model.predict_proba(X)
@@ -234,6 +254,21 @@ def run_login_baselines_for_run(
     X_train, ys_train = _select_X_y(df_train)
     X_time, ys_time = _select_X_y(df_time)
     X_hold, ys_hold = _select_X_y(df_hold)
+
+    feature_names = list(X_train.columns)
+
+    # Fit preprocessors once on TRAIN and reuse transforms across models/labels.
+    imputer = SimpleImputer(strategy="constant", fill_value=0.0)
+    imputer.fit(X_train)
+    X_train_imputed = imputer.transform(X_train)
+    X_time_imputed = imputer.transform(X_time)
+    X_hold_imputed = imputer.transform(X_hold)
+
+    scaler = StandardScaler(with_mean=True, with_std=True)
+    scaler.fit(X_train_imputed)
+    X_train_scaled = scaler.transform(X_train_imputed)
+    X_time_scaled = scaler.transform(X_time_imputed)
+    X_hold_scaled = scaler.transform(X_hold_imputed)
 
     bcfg = cfg.baselines.login_attempt
     if not bcfg.enabled:
@@ -354,14 +389,38 @@ def run_login_baselines_for_run(
         for model_name in bcfg.models:
             model: Pipeline | None = None
             model_meta: dict[str, Any] = {}
+            X_train_for_model: pd.DataFrame | np.ndarray = X_train
+            X_time_for_model: pd.DataFrame | np.ndarray = X_time
+            X_hold_for_model: pd.DataFrame | np.ndarray = X_hold
             try:
                 if model_name == "logreg":
                     _log(f"[baselines] fit start label={label} model=logreg")
-                    model = _fit_logreg(cfg, X_train, y_tr, logreg_cfg=logreg_cfg)
+                    X_train_for_model = X_train_scaled
+                    X_time_for_model = X_time_scaled
+                    X_hold_for_model = X_hold_scaled
+                    model = _fit_logreg(
+                        cfg,
+                        X_train_for_model,
+                        y_tr,
+                        logreg_cfg=logreg_cfg,
+                        imputer=imputer,
+                        scaler=scaler,
+                        feature_names=feature_names,
+                    )
                     _log(f"[baselines] fit ok label={label} model=logreg")
                 elif model_name == "rf":
                     _log(f"[baselines] fit start label={label} model=rf")
-                    model = _fit_rf(cfg, X_train, y_tr, rf_cfg=rf_cfg)
+                    X_train_for_model = X_train_imputed
+                    X_time_for_model = X_time_imputed
+                    X_hold_for_model = X_hold_imputed
+                    model = _fit_rf(
+                        cfg,
+                        X_train_for_model,
+                        y_tr,
+                        rf_cfg=rf_cfg,
+                        imputer=imputer,
+                        feature_names=feature_names,
+                    )
                     _log(f"[baselines] fit ok label={label} model=rf")
                 elif model_name == "hgb":
                     if not getattr(hgb_cfg, "enabled", False):
@@ -396,9 +455,9 @@ def run_login_baselines_for_run(
                 continue
 
             # Scores
-            s_train = _score_model(model, X_train)
-            s_time = _score_model(model, X_time)
-            s_hold = _score_model(model, X_hold)
+            s_train = _score_model(model, X_train_for_model)
+            s_time = _score_model(model, X_time_for_model)
+            s_hold = _score_model(model, X_hold_for_model)
 
             # Metrics
             y_time = ys_time[label]
