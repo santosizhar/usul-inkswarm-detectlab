@@ -4,39 +4,42 @@ from copy import deepcopy
 from pathlib import Path
 import json
 import platform
+import random
 import subprocess
 import sys
-from pathlib import Path
-import random
 from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from threadpoolctl import threadpool_limits
 
 from ..config import AppConfig
-from ..config.models import (
-    LogRegBaselineConfig,
-    RFBaselineConfig,
-    HGBBaselineConfig,
-)
-from ..io.paths import run_dir as run_dir_for, manifest_path
+from ..config.models import HGBBaselineConfig, LogRegBaselineConfig, RFBaselineConfig
+from ..features.runner import build_login_features_for_run
 from ..io.manifest import read_manifest, write_manifest
+from ..io.paths import manifest_path, run_dir as run_dir_for
+from ..synthetic.label_defs import as_markdown_table as _labels_markdown_table
 from ..utils.canonical import canonicalize_df
 from ..utils.hashing import stable_hash_dict
-from ..features.runner import build_login_features_for_run
 from .metrics import choose_threshold_for_fpr, top_thresholds_for_fpr
-from ..synthetic.label_defs import as_markdown_table as _labels_markdown_table
 
 # sklearn is an MVP dependency (D-0004)
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
+
+# sklearn is an MVP dependency (D-0004)
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, roc_auc_score
-import joblib
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def _env_diagnostics() -> dict[str, Any]:
@@ -102,28 +105,10 @@ def _fit_logreg(
     y: np.ndarray,
     *,
     logreg_cfg: LogRegBaselineConfig | None = None,
-    random_state: int | None = None,
-) -> Pipeline:
-    c = logreg_cfg or cfg.baselines.login_attempt.logreg
-    class_weight = "balanced" if c.class_weight == "balanced" else None
-    pipe = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="constant", fill_value=0.0)),
-            ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            (
-                "model",
-                LogisticRegression(
-                    C=c.C,
-                    max_iter=c.max_iter,
-                    class_weight=class_weight,
-                    solver="lbfgs",
-                    random_state=random_state or cfg.run.seed,
-                ),
-            ),
-        ]
     imputer: SimpleImputer | None = None,
     scaler: StandardScaler | None = None,
     feature_names: list[str] | None = None,
+    random_state: int | None = None,
 ) -> Pipeline:
     c = logreg_cfg or cfg.baselines.login_attempt.logreg
     class_weight = "balanced" if c.class_weight == "balanced" else None
@@ -132,6 +117,7 @@ def _fit_logreg(
         max_iter=c.max_iter,
         class_weight=class_weight,
         solver="lbfgs",
+        random_state=random_state or cfg.run.seed,
     )
     model.fit(X, y)
 
@@ -156,9 +142,9 @@ def _fit_rf(
     y: np.ndarray,
     *,
     rf_cfg: RFBaselineConfig | None = None,
-    random_state: int | None = None,
     imputer: SimpleImputer | None = None,
     feature_names: list[str] | None = None,
+    random_state: int | None = None,
 ) -> Pipeline:
     c = rf_cfg or cfg.baselines.login_attempt.rf
     model = RandomForestClassifier(
@@ -168,7 +154,6 @@ def _fit_rf(
         max_features=c.max_features,
         max_samples=c.max_samples,
         n_jobs=c.n_jobs,
-        n_jobs=1,  # deterministic + avoids BLAS/OpenMP surprises
         random_state=random_state or cfg.run.seed,
     )
     model.fit(X, y)
@@ -337,7 +322,11 @@ def run_login_baselines_for_run(
     logs_dir = rdir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / "baselines.log"
+
     log_messages: list[str] = [f"[baselines] start run_id={run_id} out_dir={out_dir}"]
+
+    def _log(msg: str) -> None:
+        log_messages.append(msg)
 
     requested_n_jobs = max(1, int(getattr(bcfg, "n_jobs", 1)))
 
@@ -366,8 +355,6 @@ def run_login_baselines_for_run(
             "effective_rf_max_features": rf_cfg.max_features,
             "effective_rf_max_samples": rf_cfg.max_samples,
             "effective_rf_n_jobs": rf_cfg.n_jobs,
-            "effective_hgb_enabled": bool(getattr(hgb_cfg, "enabled", True)),
-            "effective_rf_max_samples": rf_cfg.max_samples,
             "effective_hgb_enabled": bool(getattr(hgb_cfg, "enabled", False)),
         }
     )
@@ -411,12 +398,7 @@ def run_login_baselines_for_run(
                     rows.append({"feature": feature_names[int(i)], "importance": float(w[int(i)])})
         return rows
 
-    labels = list(ys_train.keys())
-    for label, y_tr in ys_train.items():
-        results["labels"][label] = {}
-        log_messages.append(f"[baselines] label={label} train_rows={len(y_tr)}")
-
-    jobs = [(label, model_name) for label in labels for model_name in bcfg.models]
+    jobs = [(label, model_name) for label in ys_train.keys() for model_name in bcfg.models]
     seeds = np.random.SeedSequence(int(cfg.run.seed)).spawn(len(jobs))
     actual_n_jobs = min(requested_n_jobs, len(jobs) or 1)
     results["meta"]["n_jobs"] = actual_n_jobs
@@ -429,60 +411,48 @@ def run_login_baselines_for_run(
         with threadpool_limits(limits=1):
             model: Pipeline | None = None
             model_meta: dict[str, Any] = {}
-            y_tr = ys_train[label]
-            try:
-                if model_name == "logreg":
-                    local_logs.append(f"[baselines] fit start label={label} model=logreg")
-                    model = _fit_logreg(cfg, X_train, y_tr, logreg_cfg=logreg_cfg, random_state=seed_int)
-                    local_logs.append(f"[baselines] fit ok label={label} model=logreg")
-                elif model_name == "rf":
-                    local_logs.append(f"[baselines] fit start label={label} model=rf")
-                    model = _fit_rf(cfg, X_train, y_tr, rf_cfg=rf_cfg, random_state=seed_int)
-                    local_logs.append(f"[baselines] fit ok label={label} model=rf")
             X_train_for_model: pd.DataFrame | np.ndarray = X_train
             X_time_for_model: pd.DataFrame | np.ndarray = X_time
             X_hold_for_model: pd.DataFrame | np.ndarray = X_hold
             try:
                 if model_name == "logreg":
-                    _log(f"[baselines] fit start label={label} model=logreg")
+                    local_logs.append(f"[baselines] fit start label={label} model=logreg")
                     X_train_for_model = X_train_scaled
                     X_time_for_model = X_time_scaled
                     X_hold_for_model = X_hold_scaled
                     model = _fit_logreg(
                         cfg,
                         X_train_for_model,
-                        y_tr,
+                        ys_train[label],
                         logreg_cfg=logreg_cfg,
                         imputer=imputer,
                         scaler=scaler,
                         feature_names=feature_names,
+                        random_state=seed_int,
                     )
-                    _log(f"[baselines] fit ok label={label} model=logreg")
+                    local_logs.append(f"[baselines] fit ok label={label} model=logreg")
                 elif model_name == "rf":
-                    _log(f"[baselines] fit start label={label} model=rf")
+                    local_logs.append(f"[baselines] fit start label={label} model=rf")
                     X_train_for_model = X_train_imputed
                     X_time_for_model = X_time_imputed
                     X_hold_for_model = X_hold_imputed
                     model = _fit_rf(
                         cfg,
                         X_train_for_model,
-                        y_tr,
+                        ys_train[label],
                         rf_cfg=rf_cfg,
                         imputer=imputer,
                         feature_names=feature_names,
+                        random_state=seed_int,
                     )
-                    _log(f"[baselines] fit ok label={label} model=rf")
+                    local_logs.append(f"[baselines] fit ok label={label} model=rf")
                 elif model_name == "hgb":
                     if not getattr(hgb_cfg, "enabled", False):
                         local_logs.append(f"[baselines] skip label={label} model=hgb reason=disabled")
                         return (
                             label,
                             model_name,
-                            {
-                                "status": "skipped",
-                                "error": "disabled by preset/config",
-                                "meta": {},
-                            },
+                            {"status": "skipped", "error": "disabled by preset/config", "meta": {}},
                             local_logs,
                         )
                     if cfg_path is None:
@@ -501,22 +471,15 @@ def run_login_baselines_for_run(
                 return (
                     label,
                     model_name,
-                    {
-                        "status": "failed",
-                        "error": str(e),
-                        "meta": model_meta,
-                    },
+                    {"status": "failed", "error": str(e), "meta": model_meta},
                     local_logs,
                 )
 
-            s_train = _score_model(model, X_train)
-            s_time = _score_model(model, X_time)
-            s_hold = _score_model(model, X_hold)
-            # Scores
             s_train = _score_model(model, X_train_for_model)
             s_time = _score_model(model, X_time_for_model)
             s_hold = _score_model(model, X_hold_for_model)
 
+            y_tr = ys_train[label]
             y_time = ys_time[label]
             y_hold = ys_hold[label]
 
@@ -553,7 +516,6 @@ def run_login_baselines_for_run(
                 except Exception:
                     pass
 
-            model_path = by_model_path
             if not model_path.exists() and legacy_path.exists():
                 model_path = legacy_path
 
@@ -605,6 +567,7 @@ def run_login_baselines_for_run(
             had_failures = True
             n_failed += 1
 
+    log_messages.append(f"[baselines] done had_failures={had_failures} n_ok={n_ok} n_failed={n_failed}")
     log_path.write_text("\n".join(log_messages) + "\n", encoding="utf-8")
 
     # Overall status
@@ -666,7 +629,6 @@ def run_login_baselines_for_run(
         except ValueError:
             section_lines.append("(Baseline summary table unavailable.)")
             section_lines.append("")
-
         if results.get("status") == "partial":
             section_lines.append("> **WARNING:** One or more baseline fits failed. See the log and metrics for details.")
             section_lines.append("")
@@ -685,14 +647,32 @@ def run_login_baselines_for_run(
         else:
             merged = base.rstrip() + "\n\n" + section
         sp.write_text(merged, encoding="utf-8")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         _log(f"[baselines] failed to write user-facing reports section: {e}")
 
     # Update run manifest with pointers (uncommitted by default, but recorded)
     artifacts = manifest.get("artifacts", {}) or {}
-    artifacts["models/login_attempt/baselines/metrics"] = {"path": str(metrics_path.relative_to(cfg.paths.runs_dir)), "format": "json", "note": "UNCOMMITTED", "rows": None, "content_hash": stable_hash_dict(results)}
-    artifacts["models/login_attempt/baselines/report"] = {"path": str(report_path.relative_to(cfg.paths.runs_dir)), "format": "md", "note": "UNCOMMITTED", "rows": None, "content_hash": stable_hash_dict({"report": report_path.read_text(encoding="utf-8")})}
-    artifacts["logs/baselines"] = {"path": str(log_path.relative_to(cfg.paths.runs_dir)), "format": "text", "note": "UNCOMMITTED", "rows": None, "content_hash": stable_hash_dict({"log": log_path.read_text(encoding="utf-8") if log_path.exists() else ""})}
+    artifacts["models/login_attempt/baselines/metrics"] = {
+        "path": str(metrics_path.relative_to(cfg.paths.runs_dir)),
+        "format": "json",
+        "note": "UNCOMMITTED",
+        "rows": None,
+        "content_hash": stable_hash_dict(results),
+    }
+    artifacts["models/login_attempt/baselines/report"] = {
+        "path": str(report_path.relative_to(cfg.paths.runs_dir)),
+        "format": "md",
+        "note": "UNCOMMITTED",
+        "rows": None,
+        "content_hash": stable_hash_dict({"report": report_path.read_text(encoding="utf-8")}),
+    }
+    artifacts["logs/baselines"] = {
+        "path": str(log_path.relative_to(cfg.paths.runs_dir)),
+        "format": "text",
+        "note": "UNCOMMITTED",
+        "rows": None,
+        "content_hash": stable_hash_dict({"log": log_path.read_text(encoding="utf-8") if log_path.exists() else ""}),
+    }
     manifest["artifacts"] = artifacts
     write_manifest(mpath, manifest)
 
