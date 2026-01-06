@@ -203,6 +203,14 @@ class LoginBaselinesConfig(BaseModel):
             "to speed up iteration (recommended for notebooks / quick checks, not final evaluation)."
         ),
     )
+    n_jobs: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Parallelism for baseline model fits (labels x models). Set to >1 to enable joblib concurrency while "
+            "respecting threadpool limits to avoid oversubscription."
+        ),
+    )
     # D-0005: default baselines are logreg + rf.
     # CR-0002: HGB is temporarily **disabled** until its native crash is resolved.
     models: list[Literal["logreg", "rf", "hgb"]] = Field(default_factory=lambda: ["logreg", "rf"])
