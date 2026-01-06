@@ -138,6 +138,7 @@ def _fit_rf(
         max_depth=c.max_depth,
         min_samples_leaf=c.min_samples_leaf,
         max_features=c.max_features,
+        max_samples=c.max_samples,
         n_jobs=1,  # deterministic + avoids BLAS/OpenMP surprises
         random_state=cfg.run.seed,
     )
@@ -239,8 +240,10 @@ def run_login_baselines_for_run(
     if not bcfg.enabled:
         raise ValueError("baselines.login_attempt.enabled is false; nothing to do")
 
-    # Preset support: speed up iteration in notebooks without changing the default behavior.
-    # NOTE: This does NOT change the dataset, splits, or metric definitions.
+    # Preset support: speed up iteration in notebooks without changing the dataset, splits, or metric definitions.
+    # - The "standard" preset now defaults to lighter RF trees (200 estimators, max_depth=20) so large datasets
+    #   stay tractable by default; set explicit values in config to restore the previous heavier baseline.
+    # - The "fast" preset further clamps expensive knobs for quick iteration.
     preset = getattr(bcfg, "preset", "standard")
     logreg_cfg = bcfg.logreg
     rf_cfg = bcfg.rf
@@ -304,6 +307,17 @@ def run_login_baselines_for_run(
             "env": _env_diagnostics(),
         },
     }
+
+    results["meta"].update(
+        {
+            "preset": preset,
+            "effective_logreg_max_iter": int(logreg_cfg.max_iter),
+            "effective_rf_n_estimators": int(rf_cfg.n_estimators),
+            "effective_rf_max_depth": rf_cfg.max_depth,
+            "effective_rf_max_samples": rf_cfg.max_samples,
+            "effective_hgb_enabled": bool(getattr(hgb_cfg, "enabled", False)),
+        }
+    )
 
     def _metrics_at_threshold(y_true: np.ndarray, scores: np.ndarray, thr: float) -> dict[str, float]:
         """Compute fpr/recall/precision for a fixed threshold."""
@@ -637,6 +651,7 @@ def _render_report(results: dict[str, Any]) -> str:
         "effective_logreg_max_iter",
         "effective_rf_n_estimators",
         "effective_rf_max_depth",
+        "effective_rf_max_samples",
         "effective_hgb_enabled",
     ]:
         if k in meta:
