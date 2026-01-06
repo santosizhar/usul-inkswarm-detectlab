@@ -396,6 +396,24 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
     # Precompute hour starts
     hour_starts = [start_dt + timedelta(hours=h) for h in range(total_hours)]
 
+    user_list = [str(u) for u in user_ids]
+    ip_hash_cache = {uid: f"ip_{stable_mod(f'{uid}|ip', 10000):04d}" for uid in user_list}
+    device_hash_cache = {uid: f"dev_{stable_mod(f'{uid}|dev', 10000):04d}" for uid in user_list}
+    credit_card_cache = {uid: f"cc_{stable_mod(f'{uid}|cc', 200000):06d}" for uid in user_list}
+    session_id_cache = {
+        (uid, h): f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}"
+        for uid in user_list
+        for h in range(total_hours)
+    }
+
+    checkout_metadata_json = json.dumps(
+        {"campaign_id": None, "note": "fraud labels disabled until SPACING GUILD"},
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+
+    all_rows = []
+    event_counter = 0
     batch_size = int(max(1, getattr(s, "batch_size", 50000)))
     login_writer = _ParquetBatchWriter()
     login_batch: dict[str, list] = {}
@@ -643,6 +661,39 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                 "playbooks": [p for p in ("REPLICATORS" if rep else None, "THE_MULE" if mule else None, "THE_CHAMELEON" if cham else None) if p],
             }
 
+            all_rows.append(
+                {
+                    "run_id": run_id,
+                    "event_id": eid,
+                    "event_ts": event_ts[i],
+                    "user_id": uid,
+                    "session_id": session_id_cache[(uid, h)],
+                    "ip_hash": ip_hash_cache[uid],
+                    "device_fingerprint_hash": device_hash_cache[uid],
+                    "country": "AR",
+                    "is_fraud": bool(is_fraud),
+                    "label_replicators": bool(rep),
+                    "label_the_mule": bool(mule),
+                    "label_the_chameleon": bool(cham),
+                    "label_benign": bool(benign),
+                    "metadata_json": json.dumps(meta, separators=(",", ":"), ensure_ascii=True),
+                    "login_result": str(login_result),
+                    "failure_reason": failure_reason,
+                    "username_present": bool(username_present),
+                    "mfa_used": bool(mfa_used),
+                    "mfa_result": str(mfa_result),
+                    "support_contacted": bool(support_contacted),
+                    "support_channel": str(support_channel),
+                    "support_responder_type": str(support_responder_type),
+                    "support_wait_seconds": support_wait_seconds,
+                    "support_handle_seconds": support_handle_seconds,
+                    "support_cost_usd": support_cost_usd,
+                    "support_resolution": str(support_resolution),
+                    "support_offset_seconds": support_offset_seconds,
+                }
+            )
+
+    login_df = pd.DataFrame(all_rows)
             batch["session_id"][i] = f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}"
             batch["ip_hash"][i] = f"ip_{stable_mod(f'{uid}|ip', 10000):04d}"
             batch["device_fingerprint_hash"][i] = f"dev_{stable_mod(f'{uid}|dev', 10000):04d}"
@@ -739,6 +790,27 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                     else:
                         decline_reason = rng.choice(["insufficient_funds", "network_error", "other"], p=[0.40, 0.35, 0.25])
 
+                checkout_rows.append(
+                    {
+                        "run_id": run_id,
+                        "event_id": eid,
+                        "event_ts": event_ts[i],
+                        "user_id": uid,
+                        "session_id": session_id_cache[(uid, h)],
+                        "ip_hash": ip_hash_cache[uid],
+                        "device_fingerprint_hash": device_hash_cache[uid],
+                        "country": "AR",
+                        "is_fraud": False,
+                        "metadata_json": checkout_metadata_json,
+                        "payment_value": float(np.clip(rng.lognormal(mean=3.1, sigma=0.6), 1.0, 5000.0)),
+                        "basket_size": int(rng.integers(1, 7)),
+                        "is_first_time_user": bool(rng.random() < 0.18),
+                        "is_premium_user": bool(rng.random() < 0.25),
+                        "credit_card_hash": None if rng.random() < 0.15 else credit_card_cache[uid],
+                        "checkout_result": str(checkout_result),
+                        "decline_reason": decline_reason,
+                    }
+                )
                 row = {
                     "run_id": run_id,
                     "event_id": eid,
