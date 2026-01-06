@@ -9,9 +9,12 @@ import pandas as pd
 # CSV helpers remain ONLY for legacy conversion (dataset parquetify).
 
 
-def write_parquet(df: pd.DataFrame, path: Path) -> None:
+def write_parquet(df: pd.DataFrame, path: Path, *, partition_cols: list[str] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(path, index=False)
+    if partition_cols:
+        df.to_parquet(path, index=False, partition_cols=partition_cols)
+    else:
+        df.to_parquet(path, index=False)
 
 
 def read_parquet(path: Path) -> pd.DataFrame:
@@ -52,13 +55,21 @@ def read_auto_legacy(base_path_no_ext: Path) -> pd.DataFrame:
     raise FileNotFoundError(f"No table found for {base_path_no_ext} (.parquet/.csv)")
 
 
-def write_auto(df: pd.DataFrame, base_path_no_ext: Path) -> tuple[Path, str, str | None]:
+def write_auto(
+    df: pd.DataFrame,
+    base_path_no_ext: Path,
+    *,
+    partition_cols: list[str] | None = None,
+) -> tuple[Path, str, str | None]:
     """Write parquet only (D-0005+). Returns: (path, format, note)."""
     pq = base_path_no_ext.with_suffix(".parquet")
     try:
-        write_parquet(df, pq)
+        write_parquet(df, pq, partition_cols=partition_cols)
     except ImportError as e:
         raise ImportError(
             "Parquet is mandatory. Install a parquet engine (pyarrow) and retry."
         ) from e
-    return pq, "parquet", None
+    note = None
+    if partition_cols:
+        note = f"partitioned by {partition_cols}"
+    return pq, "parquet", note

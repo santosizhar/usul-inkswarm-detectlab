@@ -16,8 +16,7 @@ from ..config.models import (
     RFBaselineConfig,
     HGBBaselineConfig,
 )
-from ..io.paths import run_dir as run_dir_for, dataset_split_basepath, manifest_path
-from ..io.tables import read_auto
+from ..io.paths import run_dir as run_dir_for, manifest_path
 from ..io.manifest import read_manifest, write_manifest
 from ..utils.canonical import canonicalize_df
 from ..utils.hashing import stable_hash_dict
@@ -74,18 +73,13 @@ def _env_diagnostics() -> dict[str, Any]:
 LABEL_COLS = ["label_replicators", "label_the_mule", "label_the_chameleon"]
 
 
-def _split_event_ids(cfg: AppConfig, rdir: Path) -> dict[str, set[str]]:
-    ids: dict[str, set[str]] = {}
-    for split in ["train", "time_eval", "user_holdout"]:
-        sdf = read_auto(dataset_split_basepath(rdir, "login_attempt", split))
-        ids[split] = set(sdf["event_id"].astype(str).tolist())
-    return ids
-
-
-def _load_features(cfg: AppConfig, rdir: Path) -> pd.DataFrame:
+def _load_features(cfg: AppConfig, rdir: Path, *, split: str | None = None) -> pd.DataFrame:
     # Always use FeatureLab output path
     base = rdir / "features" / "login_attempt" / "features"
-    return read_auto(base)
+    pq_path = base.with_suffix(".parquet")
+    if split is None:
+        return pd.read_parquet(pq_path)
+    return pd.read_parquet(pq_path, filters=[("split", "=", split)])
 
 
 def _select_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
@@ -220,17 +214,9 @@ def run_login_baselines_for_run(
     if not feat_base.with_suffix(".parquet").exists():
         build_login_features_for_run(cfg, run_id=run_id, force=False)
 
-    df = _load_features(cfg, rdir)
-    split_ids = _split_event_ids(cfg, rdir)
-
-    # Split frames
-    def take(split: str) -> pd.DataFrame:
-        ids = split_ids[split]
-        return df[df["event_id"].astype(str).isin(ids)].copy()
-
-    df_train = take("train")
-    df_time = take("time_eval")
-    df_hold = take("user_holdout")
+    df_train = _load_features(cfg, rdir, split="train")
+    df_time = _load_features(cfg, rdir, split="time_eval")
+    df_hold = _load_features(cfg, rdir, split="user_holdout")
 
     X_train, ys_train = _select_X_y(df_train)
     X_time, ys_time = _select_X_y(df_time)
