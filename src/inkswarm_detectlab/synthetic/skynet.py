@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
+import json
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import importlib.util
 import json
 
@@ -247,6 +255,49 @@ def _sample_attack_labels(
     return rep, mule, cham
 
 
+class _ParquetBatchWriter:
+    """Minimal parquet row-group writer for streaming batches."""
+
+    def __init__(self) -> None:
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.path = Path(self._tmpdir.name) / "buffer.parquet"
+        self._writer: pq.ParquetWriter | None = None
+        self._row_groups = 0
+
+    def write(self, batch: dict[str, list | np.ndarray]) -> None:
+        if not batch:
+            return
+        df = pd.DataFrame(batch)
+        if not df.empty and "event_ts" in df.columns:
+            df["event_ts"] = pd.to_datetime(df["event_ts"], utc=False)
+        table = pa.Table.from_pandas(df, preserve_index=False)
+        if self._writer is None:
+            self._writer = pq.ParquetWriter(self.path, table.schema)
+        self._writer.write_table(table)
+        self._row_groups += 1
+
+    def close(self) -> None:
+        if self._writer is not None:
+            self._writer.close()
+            self._writer = None
+
+    def to_dataframe(self) -> pd.DataFrame:
+        self.close()
+        if not self.path.exists() or self._row_groups == 0:
+            self.cleanup()
+            return pd.DataFrame()
+        table = pq.read_table(self.path)
+        df = table.to_pandas()
+        self.cleanup()
+        return df
+
+    def cleanup(self) -> None:
+        try:
+            self.path.unlink(missing_ok=True)
+        finally:
+            self._tmpdir.cleanup()
+
+
 def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """Generate SKYNET login_attempt + checkout_attempt raw tables.
 
@@ -345,6 +396,17 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
     # Precompute hour starts
     hour_starts = [start_dt + timedelta(hours=h) for h in range(total_hours)]
 
+    batch_size = int(max(1, getattr(s, "batch_size", 50000)))
+    login_writer = _ParquetBatchWriter()
+    login_batch: dict[str, list] = {}
+    event_counter = 0
+    meta_cache: dict[tuple[str | None, bool, bool, bool], str] = {}
+
+    for h in range(total_hours):
+        ts0 = hour_starts[h]
+    # Precompute hour starts
+    hour_starts = [start_dt + timedelta(hours=h) for h in range(total_hours)]
+
     def _append_batch(batches: list, data: dict, schema=None):
         if pa is not None and schema is not None:
             batches.append(pa.Table.from_pydict(data, schema=schema))
@@ -395,6 +457,11 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
         # sample users
         users = rng.choice(user_ids, size=n, replace=True, p=weights)
         # per-event ts within hour (already sorted)
+        event_ts = [ts0 + timedelta(seconds=int(o)) for o in offsets]
+
+        for i in range(n):
+            event_counter += 1
+            eid = f"login_{event_counter:010d}"
         event_ts = np.array([ts0 + timedelta(seconds=int(o)) for o in offsets], dtype=object)
         event_ids = np.array([f"login_{event_counter + i + 1:010d}" for i in range(n)], dtype=object)
         event_counter += n
@@ -447,10 +514,18 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
             benign = not (rep or mule or cham)
             is_fraud = not benign
 
+            # Outcome shaping
             if benign:
                 login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.80, 0.15, 0.04, 0.01])
             else:
                 if rep and not (mule or cham):
+                    # spray-style: lots of bulk failures + lockouts
+                    login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.10, 0.45, 0.25, 0.20])
+                elif mule and not (rep or cham):
+                    # targeted takeover attempts
+                    login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.40, 0.35, 0.15, 0.10])
+                else:
+                    # adaptive attackers (chameleon or mixed packs)
                     login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.10, 0.45, 0.25, 0.20])
                 elif mule and not rep:
                     login_result = rng.choice(["success", "failure", "challenge", "lockout"], p=[0.40, 0.35, 0.15, 0.10])
@@ -461,6 +536,7 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
             if login_result == "failure":
                 failure_reason = rng.choice(["bad_password", "mfa_failed", "rate_limited", "other"], p=[0.55, 0.20, 0.20, 0.05])
 
+            username_present = True
             if benign:
                 mfa_used = bool(rng.random() < 0.35)
             elif rep and not mule:
@@ -493,6 +569,75 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                 support_resolution = rng.choice(["resolved", "unresolved", "escalated"], p=[0.70, 0.20, 0.10])
                 support_offset_seconds = int(rng.choice([0, 60, 300, 900], p=[0.35, 0.30, 0.25, 0.10]))
 
+            key = (camp_id, rep, mule, cham)
+            if key not in meta_cache:
+                meta_cache[key] = json.dumps(
+                    {
+                        "campaign_id": camp_id,
+                        "playbooks": [
+                            p
+                            for p in (
+                                "REPLICATORS" if rep else None,
+                                "THE_MULE" if mule else None,
+                                "THE_CHAMELEON" if cham else None,
+                            )
+                            if p
+                        ],
+                    },
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                )
+
+            row = {
+                "run_id": run_id,
+                "event_id": eid,
+                "event_ts": event_ts[i],
+                "user_id": uid,
+                "session_id": f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}",
+                "ip_hash": f"ip_{stable_mod(f'{uid}|ip', 10000):04d}",
+                "device_fingerprint_hash": f"dev_{stable_mod(f'{uid}|dev', 10000):04d}",
+                "country": "AR",
+                "is_fraud": bool(is_fraud),
+                "label_replicators": bool(rep),
+                "label_the_mule": bool(mule),
+                "label_the_chameleon": bool(cham),
+                "label_benign": bool(benign),
+                "metadata_json": meta_cache[key],
+                "login_result": str(login_result),
+                "failure_reason": failure_reason,
+                "username_present": bool(username_present),
+                "mfa_used": bool(mfa_used),
+                "mfa_result": str(mfa_result),
+                "support_contacted": bool(support_contacted),
+                "support_channel": str(support_channel),
+                "support_responder_type": str(support_responder_type),
+                "support_wait_seconds": support_wait_seconds,
+                "support_handle_seconds": support_handle_seconds,
+                "support_cost_usd": support_cost_usd,
+                "support_resolution": str(support_resolution),
+                "support_offset_seconds": support_offset_seconds,
+            }
+
+            for col, val in row.items():
+                login_batch.setdefault(col, []).append(val)
+
+            if login_batch and len(next(iter(login_batch.values()))) >= batch_size:
+                login_writer.write(login_batch)
+                login_batch = {}
+
+    if login_batch:
+        login_writer.write(login_batch)
+
+    login_df = login_writer.to_dataframe()
+
+    # Checkout: mostly benign until SPACING GUILD.
+    checkout_writer = _ParquetBatchWriter()
+    checkout_batch: dict[str, list] = {}
+    checkout_meta_json = json.dumps(
+        {"campaign_id": None, "note": "fraud labels disabled until SPACING GUILD"},
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
             meta = {
                 "campaign_id": camp_id,
                 "playbooks": [p for p in ("REPLICATORS" if rep else None, "THE_MULE" if mule else None, "THE_CHAMELEON" if cham else None) if p],
@@ -541,6 +686,20 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                 continue
             users = rng.choice(user_ids, size=n, replace=True, p=weights)
             offsets = rng.integers(0, 3600, size=n)
+            event_ts = [ts0 + timedelta(seconds=int(o)) for o in offsets]
+            for i in range(n):
+                checkout_counter += 1
+                eid = f"checkout_{checkout_counter:010d}"
+                uid = str(users[i])
+                adverse = rng.random() < float(s.checkout_adverse_rate)
+                if not adverse:
+                    checkout_result = "success"
+                    decline_reason = None
+            n = int(rng.poisson(lam=max(0.0, intensity)))
+            if n <= 0:
+                continue
+            users = rng.choice(user_ids, size=n, replace=True, p=weights)
+            offsets = rng.integers(0, 3600, size=n)
             event_ts = np.array([ts0 + timedelta(seconds=int(o)) for o in offsets], dtype=object)
             event_ids = np.array([f"checkout_{checkout_counter + i + 1:010d}" for i in range(n)], dtype=object)
             checkout_counter += n
@@ -580,6 +739,37 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                     else:
                         decline_reason = rng.choice(["insufficient_funds", "network_error", "other"], p=[0.40, 0.35, 0.25])
 
+                row = {
+                    "run_id": run_id,
+                    "event_id": eid,
+                    "event_ts": event_ts[i],
+                    "user_id": uid,
+                    "session_id": f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}",
+                    "ip_hash": f"ip_{stable_mod(f'{uid}|ip', 10000):04d}",
+                    "device_fingerprint_hash": f"dev_{stable_mod(f'{uid}|dev', 10000):04d}",
+                    "country": "AR",
+                    "is_fraud": False,
+                    "metadata_json": checkout_meta_json,
+                    "payment_value": float(np.clip(rng.lognormal(mean=3.1, sigma=0.6), 1.0, 5000.0)),
+                    "basket_size": int(rng.integers(1, 7)),
+                    "is_first_time_user": bool(rng.random() < 0.18),
+                    "is_premium_user": bool(rng.random() < 0.25),
+                    "credit_card_hash": None if rng.random() < 0.15 else f"cc_{stable_mod(f'{uid}|cc', 200000):06d}",
+                    "checkout_result": str(checkout_result),
+                    "decline_reason": decline_reason,
+                }
+
+                for col, val in row.items():
+                    checkout_batch.setdefault(col, []).append(val)
+
+                if checkout_batch and len(next(iter(checkout_batch.values()))) >= batch_size:
+                    checkout_writer.write(checkout_batch)
+                    checkout_batch = {}
+
+    if checkout_batch:
+        checkout_writer.write(checkout_batch)
+
+    checkout_df = checkout_writer.to_dataframe()
                 batch["session_id"][i] = f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}"
                 batch["ip_hash"][i] = f"ip_{stable_mod(f'{uid}|ip', 10000):04d}"
                 batch["device_fingerprint_hash"][i] = f"dev_{stable_mod(f'{uid}|dev', 10000):04d}"

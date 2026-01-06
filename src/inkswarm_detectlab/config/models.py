@@ -76,6 +76,7 @@ class SkynetSyntheticConfig(BaseModel):
     n_users: int = Field(default=5000, ge=1)
     login_events_per_day: int = Field(default=20000, ge=1)
     checkout_events_per_day: int = Field(default=2000, ge=0)
+    batch_size: int = Field(default=50000, ge=1, description="Row-group batch size for synthetic generators.")
 
     # Prevalence
     attack_prevalence: float = Field(default=0.06, ge=0.0, le=1.0)
