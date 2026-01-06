@@ -7,6 +7,12 @@ The MVP baseline set is intentionally small and stable:
 
 > Note: `hgb` (HistGradientBoosting) is excluded for MVP until a platform-specific native crash is resolved.
 
+## Parallelism vs determinism (rf)
+
+- `baselines.login_attempt.rf.n_jobs` defaults to **multi-core training** (`-1` uses all cores). Override with `1` for single-threaded runs when you need strict determinism.
+- `baselines.login_attempt.preset: deterministic` pins `n_jobs=1` to favor reproducibility over speed (avoid OpenMP/BLAS nondeterminism).
+- `baselines.login_attempt.rf.max_samples` can optionally **downsample bootstrap draws** (integer count or 0<frac<=1) to reduce fit cost; leave unset to train on all rows and maximize signal capture.
+
 ## Primary headline metric
 - **PR-AUC** (area under the Precision–Recall curve)
 

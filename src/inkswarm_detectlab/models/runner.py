@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+from pathlib import Path
 import json
 import platform
 import subprocess
@@ -19,8 +21,7 @@ from ..config.models import (
     RFBaselineConfig,
     HGBBaselineConfig,
 )
-from ..io.paths import run_dir as run_dir_for, dataset_split_basepath, manifest_path
-from ..io.tables import read_auto
+from ..io.paths import run_dir as run_dir_for, manifest_path
 from ..io.manifest import read_manifest, write_manifest
 from ..utils.canonical import canonicalize_df
 from ..utils.hashing import stable_hash_dict
@@ -77,18 +78,13 @@ def _env_diagnostics() -> dict[str, Any]:
 LABEL_COLS = ["label_replicators", "label_the_mule", "label_the_chameleon"]
 
 
-def _split_event_ids(cfg: AppConfig, rdir: Path) -> dict[str, set[str]]:
-    ids: dict[str, set[str]] = {}
-    for split in ["train", "time_eval", "user_holdout"]:
-        sdf = read_auto(dataset_split_basepath(rdir, "login_attempt", split))
-        ids[split] = set(sdf["event_id"].astype(str).tolist())
-    return ids
-
-
-def _load_features(cfg: AppConfig, rdir: Path) -> pd.DataFrame:
+def _load_features(cfg: AppConfig, rdir: Path, *, split: str | None = None) -> pd.DataFrame:
     # Always use FeatureLab output path
     base = rdir / "features" / "login_attempt" / "features"
-    return read_auto(base)
+    pq_path = base.with_suffix(".parquet")
+    if split is None:
+        return pd.read_parquet(pq_path)
+    return pd.read_parquet(pq_path, filters=[("split", "=", split)])
 
 
 def _select_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
@@ -102,7 +98,7 @@ def _select_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, np.ndarray]]:
 
 def _fit_logreg(
     cfg: AppConfig,
-    X: pd.DataFrame,
+    X: np.ndarray,
     y: np.ndarray,
     *,
     logreg_cfg: LogRegBaselineConfig | None = None,
@@ -125,18 +121,44 @@ def _fit_logreg(
                 ),
             ),
         ]
+    imputer: SimpleImputer | None = None,
+    scaler: StandardScaler | None = None,
+    feature_names: list[str] | None = None,
+) -> Pipeline:
+    c = logreg_cfg or cfg.baselines.login_attempt.logreg
+    class_weight = "balanced" if c.class_weight == "balanced" else None
+    model = LogisticRegression(
+        C=c.C,
+        max_iter=c.max_iter,
+        class_weight=class_weight,
+        solver="lbfgs",
     )
-    pipe.fit(X, y)
+    model.fit(X, y)
+
+    steps = []
+    if imputer is not None:
+        steps.append(("imputer", deepcopy(imputer)))
+    if scaler is not None:
+        steps.append(("scaler", deepcopy(scaler)))
+    steps.append(("model", model))
+
+    pipe = Pipeline(steps=steps)
+    if hasattr(model, "n_features_in_"):
+        pipe.n_features_in_ = model.n_features_in_  # type: ignore[attr-defined]
+    if feature_names is not None:
+        pipe.feature_names_in_ = np.array(feature_names)  # type: ignore[attr-defined]
     return pipe
 
 
 def _fit_rf(
     cfg: AppConfig,
-    X: pd.DataFrame,
+    X: np.ndarray,
     y: np.ndarray,
     *,
     rf_cfg: RFBaselineConfig | None = None,
     random_state: int | None = None,
+    imputer: SimpleImputer | None = None,
+    feature_names: list[str] | None = None,
 ) -> Pipeline:
     c = rf_cfg or cfg.baselines.login_attempt.rf
     model = RandomForestClassifier(
@@ -144,11 +166,23 @@ def _fit_rf(
         max_depth=c.max_depth,
         min_samples_leaf=c.min_samples_leaf,
         max_features=c.max_features,
+        max_samples=c.max_samples,
+        n_jobs=c.n_jobs,
         n_jobs=1,  # deterministic + avoids BLAS/OpenMP surprises
         random_state=random_state or cfg.run.seed,
     )
-    pipe = Pipeline(steps=[("imputer", SimpleImputer(strategy="constant", fill_value=0.0)), ("model", model)])
-    pipe.fit(X, y)
+    model.fit(X, y)
+
+    steps = []
+    if imputer is not None:
+        steps.append(("imputer", deepcopy(imputer)))
+    steps.append(("model", model))
+
+    pipe = Pipeline(steps=steps)
+    if hasattr(model, "n_features_in_"):
+        pipe.n_features_in_ = model.n_features_in_  # type: ignore[attr-defined]
+    if feature_names is not None:
+        pipe.feature_names_in_ = np.array(feature_names)  # type: ignore[attr-defined]
     return pipe
 
 
@@ -198,7 +232,7 @@ def _fit_hgb_in_subprocess(
     return model_path, meta
 
 
-def _score_model(model: Pipeline, X: pd.DataFrame) -> np.ndarray:
+def _score_model(model: Pipeline, X: pd.DataFrame | np.ndarray) -> np.ndarray:
     # Prefer predict_proba if available; otherwise decision_function
     if hasattr(model, "predict_proba"):
         p = model.predict_proba(X)
@@ -225,28 +259,37 @@ def run_login_baselines_for_run(
     if not feat_base.with_suffix(".parquet").exists():
         build_login_features_for_run(cfg, run_id=run_id, force=False)
 
-    df = _load_features(cfg, rdir)
-    split_ids = _split_event_ids(cfg, rdir)
-
-    # Split frames
-    def take(split: str) -> pd.DataFrame:
-        ids = split_ids[split]
-        return df[df["event_id"].astype(str).isin(ids)].copy()
-
-    df_train = take("train")
-    df_time = take("time_eval")
-    df_hold = take("user_holdout")
+    df_train = _load_features(cfg, rdir, split="train")
+    df_time = _load_features(cfg, rdir, split="time_eval")
+    df_hold = _load_features(cfg, rdir, split="user_holdout")
 
     X_train, ys_train = _select_X_y(df_train)
     X_time, ys_time = _select_X_y(df_time)
     X_hold, ys_hold = _select_X_y(df_hold)
 
+    feature_names = list(X_train.columns)
+
+    # Fit preprocessors once on TRAIN and reuse transforms across models/labels.
+    imputer = SimpleImputer(strategy="constant", fill_value=0.0)
+    imputer.fit(X_train)
+    X_train_imputed = imputer.transform(X_train)
+    X_time_imputed = imputer.transform(X_time)
+    X_hold_imputed = imputer.transform(X_hold)
+
+    scaler = StandardScaler(with_mean=True, with_std=True)
+    scaler.fit(X_train_imputed)
+    X_train_scaled = scaler.transform(X_train_imputed)
+    X_time_scaled = scaler.transform(X_time_imputed)
+    X_hold_scaled = scaler.transform(X_hold_imputed)
+
     bcfg = cfg.baselines.login_attempt
     if not bcfg.enabled:
         raise ValueError("baselines.login_attempt.enabled is false; nothing to do")
 
-    # Preset support: speed up iteration in notebooks without changing the default behavior.
-    # NOTE: This does NOT change the dataset, splits, or metric definitions.
+    # Preset support: speed up iteration in notebooks without changing the dataset, splits, or metric definitions.
+    # - The "standard" preset now defaults to lighter RF trees (200 estimators, max_depth=20) so large datasets
+    #   stay tractable by default; set explicit values in config to restore the previous heavier baseline.
+    # - The "fast" preset further clamps expensive knobs for quick iteration.
     preset = getattr(bcfg, "preset", "standard")
     logreg_cfg = bcfg.logreg
     rf_cfg = bcfg.rf
@@ -269,6 +312,10 @@ def run_login_baselines_for_run(
         # HGB is powerful but can be expensive; disable by default in fast mode.
         if getattr(hgb_cfg, "enabled", False):
             hgb_cfg = hgb_cfg.model_copy(update={"enabled": False})
+
+    if preset == "deterministic":
+        # Keep single-threaded fits to avoid platform-dependent nondeterminism from OpenMP/BLAS backends.
+        rf_cfg = rf_cfg.model_copy(update={"n_jobs": 1})
 
     out_dir = rdir / "models" / "login_attempt" / "baselines"
     if out_dir.exists() and not force:
@@ -308,6 +355,22 @@ def run_login_baselines_for_run(
             "n_jobs": requested_n_jobs,
         },
     }
+
+    results["meta"].update(
+        {
+            "preset": preset,
+            "effective_logreg_max_iter": int(logreg_cfg.max_iter),
+            "effective_rf_n_estimators": int(rf_cfg.n_estimators),
+            "effective_rf_max_depth": rf_cfg.max_depth,
+            "effective_rf_min_samples_leaf": int(rf_cfg.min_samples_leaf),
+            "effective_rf_max_features": rf_cfg.max_features,
+            "effective_rf_max_samples": rf_cfg.max_samples,
+            "effective_rf_n_jobs": rf_cfg.n_jobs,
+            "effective_hgb_enabled": bool(getattr(hgb_cfg, "enabled", True)),
+            "effective_rf_max_samples": rf_cfg.max_samples,
+            "effective_hgb_enabled": bool(getattr(hgb_cfg, "enabled", False)),
+        }
+    )
 
     def _metrics_at_threshold(y_true: np.ndarray, scores: np.ndarray, thr: float) -> dict[str, float]:
         """Compute fpr/recall/precision for a fixed threshold."""
@@ -376,6 +439,39 @@ def run_login_baselines_for_run(
                     local_logs.append(f"[baselines] fit start label={label} model=rf")
                     model = _fit_rf(cfg, X_train, y_tr, rf_cfg=rf_cfg, random_state=seed_int)
                     local_logs.append(f"[baselines] fit ok label={label} model=rf")
+            X_train_for_model: pd.DataFrame | np.ndarray = X_train
+            X_time_for_model: pd.DataFrame | np.ndarray = X_time
+            X_hold_for_model: pd.DataFrame | np.ndarray = X_hold
+            try:
+                if model_name == "logreg":
+                    _log(f"[baselines] fit start label={label} model=logreg")
+                    X_train_for_model = X_train_scaled
+                    X_time_for_model = X_time_scaled
+                    X_hold_for_model = X_hold_scaled
+                    model = _fit_logreg(
+                        cfg,
+                        X_train_for_model,
+                        y_tr,
+                        logreg_cfg=logreg_cfg,
+                        imputer=imputer,
+                        scaler=scaler,
+                        feature_names=feature_names,
+                    )
+                    _log(f"[baselines] fit ok label={label} model=logreg")
+                elif model_name == "rf":
+                    _log(f"[baselines] fit start label={label} model=rf")
+                    X_train_for_model = X_train_imputed
+                    X_time_for_model = X_time_imputed
+                    X_hold_for_model = X_hold_imputed
+                    model = _fit_rf(
+                        cfg,
+                        X_train_for_model,
+                        y_tr,
+                        rf_cfg=rf_cfg,
+                        imputer=imputer,
+                        feature_names=feature_names,
+                    )
+                    _log(f"[baselines] fit ok label={label} model=rf")
                 elif model_name == "hgb":
                     if not getattr(hgb_cfg, "enabled", False):
                         local_logs.append(f"[baselines] skip label={label} model=hgb reason=disabled")
@@ -416,6 +512,10 @@ def run_login_baselines_for_run(
             s_train = _score_model(model, X_train)
             s_time = _score_model(model, X_time)
             s_hold = _score_model(model, X_hold)
+            # Scores
+            s_train = _score_model(model, X_train_for_model)
+            s_time = _score_model(model, X_time_for_model)
+            s_hold = _score_model(model, X_hold_for_model)
 
             y_time = ys_time[label]
             y_hold = ys_hold[label]
@@ -654,10 +754,14 @@ def _render_report(results: dict[str, Any]) -> str:
     lines.append(f"- preset: `{preset}`")
     if preset == "fast":
         lines.append("- note: 'fast' is intended for iteration; use 'standard' for final baselines.")
+    if preset == "deterministic":
+        lines.append("- note: 'deterministic' forces single-threaded fits to prioritize reproducibility over speed.")
     for k in [
         "effective_logreg_max_iter",
         "effective_rf_n_estimators",
         "effective_rf_max_depth",
+        "effective_rf_max_samples",
+        "effective_rf_n_jobs",
         "effective_hgb_enabled",
     ]:
         if k in meta:

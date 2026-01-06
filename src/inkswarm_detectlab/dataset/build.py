@@ -40,12 +40,12 @@ def build_splits(df: pd.DataFrame, cfg: DatasetBuildConfig, rng: np.random.Gener
     if "user_id" not in df.columns or "event_ts" not in df.columns:
         raise ValueError("DataFrame must contain user_id and event_ts")
 
-    users = df["user_id"].astype(str).values
-    holdout_users = _choose_holdout_users(users, cfg.user_holdout, rng)
-    is_holdout = df["user_id"].astype(str).isin(holdout_users)
+    user_ids = df["user_id"].astype(str)
+    holdout_users = _choose_holdout_users(user_ids.to_numpy(), cfg.user_holdout, rng)
+    is_holdout = user_ids.isin(holdout_users)
 
-    holdout_df = df[is_holdout].copy()
-    remaining = df[~is_holdout].copy()
+    holdout_df = df.loc[is_holdout].copy()
+    remaining = df.loc[~is_holdout]
 
     # time boundary based on time range (not count) for robustness.
     # We compute and apply the boundary in Buenos Aires local time for interpretability.
@@ -59,7 +59,7 @@ def build_splits(df: pd.DataFrame, cfg: DatasetBuildConfig, rng: np.random.Gener
     tmax = ts.max()
     boundary = pd.Timestamp(tmin + (tmax - tmin) * float(cfg.time_split))
 
-    train_df = remaining[ts < boundary].copy()
-    eval_df = remaining[ts >= boundary].copy()
+    train_df = remaining.loc[ts < boundary].copy()
+    eval_df = remaining.loc[ts >= boundary].copy()
 
     return SplitResult(train=train_df, time_eval=eval_df, user_holdout=holdout_df, boundary_ts=boundary, holdout_users=holdout_users)
