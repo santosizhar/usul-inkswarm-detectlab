@@ -180,6 +180,18 @@ class RFBaselineConfig(BaseModel):
     max_depth: int | None = Field(default=None)
     min_samples_leaf: int = Field(default=1, ge=1)
     max_features: Literal["sqrt", "log2"] | float | None = Field(default="sqrt")
+    max_samples: float | int | None = Field(
+        default=None,
+        description=(
+            "Optional bootstrap sampling cap. Leave unset to use all samples; set to an int or (0,1] fraction to downsample."
+        ),
+    )
+    n_jobs: int | None = Field(
+        default=-1,
+        description=(
+            "Parallel jobs for RandomForest (default: all cores with -1); preset='deterministic' forces this back to 1."
+        ),
+    )
 
 
 class HGBBaselineConfig(BaseModel):
@@ -196,11 +208,12 @@ class HGBBaselineConfig(BaseModel):
 
 class LoginBaselinesConfig(BaseModel):
     enabled: bool = Field(default=True)
-    preset: Literal["standard", "fast"] = Field(
+    preset: Literal["standard", "fast", "deterministic"] = Field(
         default="standard",
         description=(
             "Training preset. 'standard' keeps current defaults; 'fast' clamps expensive knobs "
-            "to speed up iteration (recommended for notebooks / quick checks, not final evaluation)."
+            "to speed up iteration (recommended for notebooks / quick checks, not final evaluation); "
+            "'deterministic' forces single-threaded fits for maximum reproducibility."
         ),
     )
     # D-0005: default baselines are logreg + rf.

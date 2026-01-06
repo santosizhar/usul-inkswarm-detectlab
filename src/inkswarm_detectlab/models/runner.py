@@ -138,7 +138,8 @@ def _fit_rf(
         max_depth=c.max_depth,
         min_samples_leaf=c.min_samples_leaf,
         max_features=c.max_features,
-        n_jobs=1,  # deterministic + avoids BLAS/OpenMP surprises
+        max_samples=c.max_samples,
+        n_jobs=c.n_jobs,
         random_state=cfg.run.seed,
     )
     pipe = Pipeline(steps=[("imputer", SimpleImputer(strategy="constant", fill_value=0.0)), ("model", model)])
@@ -264,6 +265,10 @@ def run_login_baselines_for_run(
         if getattr(hgb_cfg, "enabled", False):
             hgb_cfg = hgb_cfg.model_copy(update={"enabled": False})
 
+    if preset == "deterministic":
+        # Keep single-threaded fits to avoid platform-dependent nondeterminism from OpenMP/BLAS backends.
+        rf_cfg = rf_cfg.model_copy(update={"n_jobs": 1})
+
     out_dir = rdir / "models" / "login_attempt" / "baselines"
     if out_dir.exists() and not force:
         metrics_path = out_dir / "metrics.json"
@@ -304,6 +309,20 @@ def run_login_baselines_for_run(
             "env": _env_diagnostics(),
         },
     }
+
+    results["meta"].update(
+        {
+            "preset": preset,
+            "effective_logreg_max_iter": int(logreg_cfg.max_iter),
+            "effective_rf_n_estimators": int(rf_cfg.n_estimators),
+            "effective_rf_max_depth": rf_cfg.max_depth,
+            "effective_rf_min_samples_leaf": int(rf_cfg.min_samples_leaf),
+            "effective_rf_max_features": rf_cfg.max_features,
+            "effective_rf_max_samples": rf_cfg.max_samples,
+            "effective_rf_n_jobs": rf_cfg.n_jobs,
+            "effective_hgb_enabled": bool(getattr(hgb_cfg, "enabled", True)),
+        }
+    )
 
     def _metrics_at_threshold(y_true: np.ndarray, scores: np.ndarray, thr: float) -> dict[str, float]:
         """Compute fpr/recall/precision for a fixed threshold."""
@@ -633,10 +652,14 @@ def _render_report(results: dict[str, Any]) -> str:
     lines.append(f"- preset: `{preset}`")
     if preset == "fast":
         lines.append("- note: 'fast' is intended for iteration; use 'standard' for final baselines.")
+    if preset == "deterministic":
+        lines.append("- note: 'deterministic' forces single-threaded fits to prioritize reproducibility over speed.")
     for k in [
         "effective_logreg_max_iter",
         "effective_rf_n_estimators",
         "effective_rf_max_depth",
+        "effective_rf_max_samples",
+        "effective_rf_n_jobs",
         "effective_hgb_enabled",
     ]:
         if k in meta:
