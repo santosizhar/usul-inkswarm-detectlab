@@ -105,6 +105,21 @@ def build_login_features_for_run(cfg: AppConfig, *, run_id: str, force: bool = F
 
     out_df = df[out_cols].copy()
 
+    # Attach split membership for downstream filtering/pushdown.
+    split_markers: list[pd.DataFrame] = []
+    for split_name in ["train", "time_eval", "user_holdout"]:
+        sdf = read_auto(dataset_split_basepath(rdir, "login_attempt", split_name))
+        split_markers.append(
+            pd.DataFrame(
+                {
+                    "event_id": sdf["event_id"],
+                    "split": split_name,
+                }
+            )
+        )
+    split_df = pd.concat(split_markers, ignore_index=True)
+    out_df = out_df.merge(split_df, on="event_id", how="left")
+
     # Canonical sort for determinism.
     sort_keys = cfg.dataset.build.canonical_sort_keys
     out_df = canonicalize_df(out_df, sort_keys=sort_keys, schema=None)
@@ -115,7 +130,7 @@ def build_login_features_for_run(cfg: AppConfig, *, run_id: str, force: bool = F
     if base_no_ext.with_suffix(".parquet").exists() and not force:
         raise FileExistsError("Feature table already exists. Re-run with --force to overwrite.")
 
-    p, fmt, note = write_auto(out_df, base_no_ext)
+    p, fmt, note = write_auto(out_df, base_no_ext, partition_cols=["split"])
 
     # Write spec + run-local manifest
     spec = FeatureSpec(
@@ -126,6 +141,8 @@ def build_login_features_for_run(cfg: AppConfig, *, run_id: str, force: bool = F
         include_labels=fcfg.include_labels,
         include_is_fraud=fcfg.include_is_fraud,
         keys=["event_id", "event_ts", "user_id"] + (["session_id"] if "session_id" in out_df.columns else []),
+        split_column="split",
+        partition_columns=["split"],
         feature_columns=sorted([c for c in feature_cols if c in out_df.columns]),
     )
 
@@ -138,6 +155,8 @@ def build_login_features_for_run(cfg: AppConfig, *, run_id: str, force: bool = F
         artifact_format=fmt,
         artifact_note=note,
         content_hash=stable_hash_df(out_df, sort_keys=sort_keys, column_order=list(out_df.columns)),
+        split_column="split",
+        partition_columns=["split"],
         spec=spec,
     )
 
