@@ -284,6 +284,22 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
     # Precompute hour starts
     hour_starts = [start_dt + timedelta(hours=h) for h in range(total_hours)]
 
+    user_list = [str(u) for u in user_ids]
+    ip_hash_cache = {uid: f"ip_{stable_mod(f'{uid}|ip', 10000):04d}" for uid in user_list}
+    device_hash_cache = {uid: f"dev_{stable_mod(f'{uid}|dev', 10000):04d}" for uid in user_list}
+    credit_card_cache = {uid: f"cc_{stable_mod(f'{uid}|cc', 200000):06d}" for uid in user_list}
+    session_id_cache = {
+        (uid, h): f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}"
+        for uid in user_list
+        for h in range(total_hours)
+    }
+
+    checkout_metadata_json = json.dumps(
+        {"campaign_id": None, "note": "fraud labels disabled until SPACING GUILD"},
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+
     all_rows = []
     event_counter = 0
 
@@ -405,9 +421,9 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                     "event_id": eid,
                     "event_ts": event_ts[i],
                     "user_id": uid,
-                    "session_id": f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}",
-                    "ip_hash": f"ip_{stable_mod(f'{uid}|ip', 10000):04d}",
-                    "device_fingerprint_hash": f"dev_{stable_mod(f'{uid}|dev', 10000):04d}",
+                    "session_id": session_id_cache[(uid, h)],
+                    "ip_hash": ip_hash_cache[uid],
+                    "device_fingerprint_hash": device_hash_cache[uid],
                     "country": "AR",
                     "is_fraud": bool(is_fraud),
                     "label_replicators": bool(rep),
@@ -466,24 +482,23 @@ def generate_skynet(cfg: AppConfig, run_id: str, seed: int | None = None) -> tup
                     else:
                         decline_reason = rng.choice(["insufficient_funds", "network_error", "other"], p=[0.40, 0.35, 0.25])
 
-                meta = {"campaign_id": None, "note": "fraud labels disabled until SPACING GUILD"}
                 checkout_rows.append(
                     {
                         "run_id": run_id,
                         "event_id": eid,
                         "event_ts": event_ts[i],
                         "user_id": uid,
-                        "session_id": f"sess_{stable_mod(f'{uid}|{h}|session', 100000):05d}",
-                        "ip_hash": f"ip_{stable_mod(f'{uid}|ip', 10000):04d}",
-                        "device_fingerprint_hash": f"dev_{stable_mod(f'{uid}|dev', 10000):04d}",
+                        "session_id": session_id_cache[(uid, h)],
+                        "ip_hash": ip_hash_cache[uid],
+                        "device_fingerprint_hash": device_hash_cache[uid],
                         "country": "AR",
                         "is_fraud": False,
-                        "metadata_json": json.dumps(meta, separators=(",", ":"), ensure_ascii=True),
+                        "metadata_json": checkout_metadata_json,
                         "payment_value": float(np.clip(rng.lognormal(mean=3.1, sigma=0.6), 1.0, 5000.0)),
                         "basket_size": int(rng.integers(1, 7)),
                         "is_first_time_user": bool(rng.random() < 0.18),
                         "is_premium_user": bool(rng.random() < 0.25),
-                        "credit_card_hash": None if rng.random() < 0.15 else f"cc_{stable_mod(f'{uid}|cc', 200000):06d}",
+                        "credit_card_hash": None if rng.random() < 0.15 else credit_card_cache[uid],
                         "checkout_result": str(checkout_result),
                         "decline_reason": decline_reason,
                     }
