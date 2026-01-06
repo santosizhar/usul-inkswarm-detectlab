@@ -229,6 +229,25 @@ class HGBBaselineConfig(BaseModel):
 
 class LoginBaselinesConfig(BaseModel):
     enabled: bool = Field(default=True)
+    preset: Literal["standard", "fast"] = Field(
+        default="standard",
+        description=(
+            "Training preset. 'standard' keeps current defaults; 'fast' clamps expensive knobs "
+            "to speed up iteration (recommended for notebooks / quick checks, not final evaluation)."
+        ),
+    )
+    n_jobs: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Parallelism for baseline model fits (labels x models). Set to >1 to enable joblib concurrency while "
+            "respecting threadpool limits to avoid oversubscription."
+        ),
+    )
+    # D-0005: default baselines are logreg + rf.
+    # CR-0002: HGB is temporarily **disabled** until its native crash is resolved.
+    models: list[Literal["logreg", "rf", "hgb"]] = Field(default_factory=lambda: ["logreg", "rf"])
+    target_fpr: float = Field(default=0.01, gt=0.0, lt=1.0)
     preset: Literal["standard", "fast", "deterministic"] = Field(
         default="standard",
         description=(

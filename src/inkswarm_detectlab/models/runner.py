@@ -6,10 +6,14 @@ import json
 import platform
 import subprocess
 import sys
+from pathlib import Path
+import random
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
+from threadpoolctl import threadpool_limits
 
 from ..config import AppConfig
 from ..config.models import (
@@ -98,6 +102,25 @@ def _fit_logreg(
     y: np.ndarray,
     *,
     logreg_cfg: LogRegBaselineConfig | None = None,
+    random_state: int | None = None,
+) -> Pipeline:
+    c = logreg_cfg or cfg.baselines.login_attempt.logreg
+    class_weight = "balanced" if c.class_weight == "balanced" else None
+    pipe = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="constant", fill_value=0.0)),
+            ("scaler", StandardScaler(with_mean=True, with_std=True)),
+            (
+                "model",
+                LogisticRegression(
+                    C=c.C,
+                    max_iter=c.max_iter,
+                    class_weight=class_weight,
+                    solver="lbfgs",
+                    random_state=random_state or cfg.run.seed,
+                ),
+            ),
+        ]
     imputer: SimpleImputer | None = None,
     scaler: StandardScaler | None = None,
     feature_names: list[str] | None = None,
@@ -133,6 +156,7 @@ def _fit_rf(
     y: np.ndarray,
     *,
     rf_cfg: RFBaselineConfig | None = None,
+    random_state: int | None = None,
     imputer: SimpleImputer | None = None,
     feature_names: list[str] | None = None,
 ) -> Pipeline:
@@ -145,7 +169,7 @@ def _fit_rf(
         max_samples=c.max_samples,
         n_jobs=c.n_jobs,
         n_jobs=1,  # deterministic + avoids BLAS/OpenMP surprises
-        random_state=cfg.run.seed,
+        random_state=random_state or cfg.run.seed,
     )
     model.fit(X, y)
 
@@ -313,12 +337,9 @@ def run_login_baselines_for_run(
     logs_dir = rdir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / "baselines.log"
+    log_messages: list[str] = [f"[baselines] start run_id={run_id} out_dir={out_dir}"]
 
-    def _log(msg: str) -> None:
-        with log_path.open("a", encoding="utf-8") as f:
-            f.write(msg + "\n")
-
-    _log(f"[baselines] start run_id={run_id} out_dir={out_dir}")
+    requested_n_jobs = max(1, int(getattr(bcfg, "n_jobs", 1)))
 
     results: dict[str, Any] = {
         "run_id": run_id,
@@ -331,6 +352,7 @@ def run_login_baselines_for_run(
             "time_eval_rows": int(len(df_time)),
             "user_holdout_rows": int(len(df_hold)),
             "env": _env_diagnostics(),
+            "n_jobs": requested_n_jobs,
         },
     }
 
@@ -389,16 +411,34 @@ def run_login_baselines_for_run(
                     rows.append({"feature": feature_names[int(i)], "importance": float(w[int(i)])})
         return rows
 
-    # Train per-label per-model
-    had_failures = False
-    n_ok = 0
-    n_failed = 0
+    labels = list(ys_train.keys())
     for label, y_tr in ys_train.items():
         results["labels"][label] = {}
-        _log(f"[baselines] label={label} train_rows={len(y_tr)}")
-        for model_name in bcfg.models:
+        log_messages.append(f"[baselines] label={label} train_rows={len(y_tr)}")
+
+    jobs = [(label, model_name) for label in labels for model_name in bcfg.models]
+    seeds = np.random.SeedSequence(int(cfg.run.seed)).spawn(len(jobs))
+    actual_n_jobs = min(requested_n_jobs, len(jobs) or 1)
+    results["meta"]["n_jobs"] = actual_n_jobs
+
+    def _fit_and_score(label: str, model_name: str, seed: np.random.SeedSequence) -> tuple[str, str, dict[str, Any], list[str]]:
+        local_logs: list[str] = []
+        seed_int = int(seed.generate_state(1, dtype=np.uint32)[0])
+        random.seed(seed_int)
+        np.random.seed(seed_int)
+        with threadpool_limits(limits=1):
             model: Pipeline | None = None
             model_meta: dict[str, Any] = {}
+            y_tr = ys_train[label]
+            try:
+                if model_name == "logreg":
+                    local_logs.append(f"[baselines] fit start label={label} model=logreg")
+                    model = _fit_logreg(cfg, X_train, y_tr, logreg_cfg=logreg_cfg, random_state=seed_int)
+                    local_logs.append(f"[baselines] fit ok label={label} model=logreg")
+                elif model_name == "rf":
+                    local_logs.append(f"[baselines] fit start label={label} model=rf")
+                    model = _fit_rf(cfg, X_train, y_tr, rf_cfg=rf_cfg, random_state=seed_int)
+                    local_logs.append(f"[baselines] fit ok label={label} model=rf")
             X_train_for_model: pd.DataFrame | np.ndarray = X_train
             X_time_for_model: pd.DataFrame | np.ndarray = X_time
             X_hold_for_model: pd.DataFrame | np.ndarray = X_hold
@@ -434,16 +474,19 @@ def run_login_baselines_for_run(
                     _log(f"[baselines] fit ok label={label} model=rf")
                 elif model_name == "hgb":
                     if not getattr(hgb_cfg, "enabled", False):
-                        _log(f"[baselines] skip label={label} model=hgb reason=disabled")
-                        results["labels"][label][model_name] = {
-                            "status": "skipped",
-                            "error": "disabled by preset/config",
-                            "meta": {},
-                        }
-                        continue
+                        local_logs.append(f"[baselines] skip label={label} model=hgb reason=disabled")
+                        return (
+                            label,
+                            model_name,
+                            {
+                                "status": "skipped",
+                                "error": "disabled by preset/config",
+                                "meta": {},
+                            },
+                            local_logs,
+                        )
                     if cfg_path is None:
                         raise ValueError("HGB requested but cfg_path was not provided (needed for subprocess worker).")
-                    # Fit in subprocess; then load back for scoring.
                     abs_model_path, model_meta = _fit_hgb_in_subprocess(
                         cfg_path=cfg_path,
                         run_id=run_id,
@@ -454,22 +497,26 @@ def run_login_baselines_for_run(
                 else:
                     raise ValueError(f"Unknown model: {model_name}")
             except Exception as e:
-                had_failures = True
-                n_failed += 1
-                _log(f"[baselines] fit FAILED label={label} model={model_name} err={e}")
-                results["labels"][label][model_name] = {
-                    "status": "failed",
-                    "error": str(e),
-                    "meta": model_meta,
-                }
-                continue
+                local_logs.append(f"[baselines] fit FAILED label={label} model={model_name} err={e}")
+                return (
+                    label,
+                    model_name,
+                    {
+                        "status": "failed",
+                        "error": str(e),
+                        "meta": model_meta,
+                    },
+                    local_logs,
+                )
 
+            s_train = _score_model(model, X_train)
+            s_time = _score_model(model, X_time)
+            s_hold = _score_model(model, X_hold)
             # Scores
             s_train = _score_model(model, X_train_for_model)
             s_time = _score_model(model, X_time_for_model)
             s_hold = _score_model(model, X_hold_for_model)
 
-            # Metrics
             y_time = ys_time[label]
             y_hold = ys_hold[label]
 
@@ -485,7 +532,6 @@ def run_login_baselines_for_run(
             except Exception:
                 roc_hold = 0.0
 
-            # D-0004 contract: choose threshold on TRAIN only, then apply to other splits.
             thr_train = choose_threshold_for_fpr(y_tr, s_train, bcfg.target_fpr)
             thr_table = [
                 {"threshold": t.threshold, "fpr": t.fpr, "recall": t.recall, "precision": t.precision}
@@ -494,31 +540,19 @@ def run_login_baselines_for_run(
             time_at_train_thr = _metrics_at_threshold(y_time, s_time, thr_train.threshold)
             hold_at_train_thr = _metrics_at_threshold(y_hold, s_hold, thr_train.threshold)
 
-            # Persist model (for hgb this may already exist; overwrite consistently)
-            #
-            # Layout v2 (preferred): <out_dir>/<model_name>/<label>.joblib
-            # Layout v1 (legacy):   <out_dir>/<label>__<model_name>.joblib
-            #
-            # We write BOTH so:
-            # - new runs are easy to browse and keep model artifacts grouped by model
-            # - older tooling remains compatible
             by_model_dir = out_dir / model_name
             by_model_dir.mkdir(parents=True, exist_ok=True)
 
             by_model_path = by_model_dir / f"{label}.joblib"
             legacy_path = out_dir / f"{label}__{model_name}.joblib"
-            # Always define model_path used in metrics entries
             model_path = by_model_path
 
-            # Prefer writing the v2 layout first.
             for _path in (by_model_path, legacy_path):
                 try:
                     joblib.dump(model, _path)
                 except Exception:
-                    # If it was written by a worker and is already there, ignore.
                     pass
 
-            # Path we record for this baseline model (prefer v2 layout)
             model_path = by_model_path
             if not model_path.exists() and legacy_path.exists():
                 model_path = legacy_path
@@ -552,8 +586,26 @@ def run_login_baselines_for_run(
             if bcfg.report_top_features:
                 entry["top_features"] = _top_features(model, list(X_train.columns))
 
-            results["labels"][label][model_name] = entry
+            return label, model_name, entry, local_logs
+
+    had_failures = False
+    n_ok = 0
+    n_failed = 0
+
+    job_results = Parallel(n_jobs=actual_n_jobs, prefer="threads")(
+        delayed(_fit_and_score)(label, model_name, seed) for (label, model_name), seed in zip(jobs, seeds)
+    )
+
+    for label, model_name, entry, logs in job_results:
+        log_messages.extend(logs)
+        results["labels"].setdefault(label, {})[model_name] = entry
+        if entry.get("status") == "ok":
             n_ok += 1
+        elif entry.get("status") == "failed":
+            had_failures = True
+            n_failed += 1
+
+    log_path.write_text("\n".join(log_messages) + "\n", encoding="utf-8")
 
     # Overall status
     if n_ok == 0:
